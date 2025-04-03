@@ -219,6 +219,11 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
               return null;
             },
           ),
+          const SizedBox(height: 8),
+          Text(
+            'YouTube videos will automatically fetch available transcripts.',
+            style: TextStyle(fontStyle: FontStyle.italic, color: Colors.blue[700]),
+          ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _processUrlVideo,
@@ -336,7 +341,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
+        children: [
           CircularProgressIndicator(),
           SizedBox(height: 24),
           Text(
@@ -345,7 +350,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
           ),
           SizedBox(height: 8),
           Text(
-            'This may take a moment',
+            'This may take a moment while we fetch transcripts',
             style: TextStyle(color: Colors.grey),
           ),
         ],

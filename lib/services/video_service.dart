@@ -3,6 +3,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/video_content.dart';
+import 'youtube_service.dart';
 
 class VideoService {
   final YoutubeExplode _youtubeExplode = YoutubeExplode();
@@ -37,30 +38,39 @@ class VideoService {
     }
   }
   
+  // Extract YouTube video ID from URL
+  String? extractYoutubeVideoId(String url) {
+    final RegExp regExp = RegExp(
+      r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*',
+      caseSensitive: false,
+    );
+    final match = regExp.firstMatch(url);
+    return match?.group(7);
+  }
+  
   // Processes YouTube videos
   Future<VideoContent> _processYouTubeVideo(String url) async {
     try {
-      // Extract video ID using regex pattern
-      final RegExp regExp = RegExp(
-        r'^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*',
-        caseSensitive: false,
-      );
-      final match = regExp.firstMatch(url);
-      final String? videoId = match?.group(7);
+      final String? videoId = extractYoutubeVideoId(url);
       
       if (videoId == null || videoId.isEmpty) {
         throw Exception('Invalid YouTube URL');
       }
       
-      // Use YoutubeExplode to get video details
-      final video = await _youtubeExplode.videos.get(videoId);
+      // Use YouTubeService to get video details
+      final videoDetails = await YouTubeService.getVideoDetails(videoId);
       
-      // Fetch subtitles (mock implementation for now)
-      final subtitles = await _fetchYouTubeSubtitles(videoId);
+      // Fetch real subtitles using our new service
+      final subtitles = await YouTubeService.getYouTubeSubtitles(videoId);
+      
+      // If no subtitles were found, inform the user
+      if (subtitles.isEmpty) {
+        print('No subtitles found for this YouTube video. You may need to add them manually.');
+      }
       
       return VideoContent(
         id: _uuid.v4(),
-        title: video.title,
+        title: videoDetails['title'] ?? 'YouTube Video',
         sourceUrl: url,
         source: VideoSource.youtube,
         subtitles: subtitles,
@@ -69,33 +79,6 @@ class VideoService {
     } catch (e) {
       throw Exception('Failed to process YouTube video: $e');
     }
-  }
-  
-  // Mock function to fetch YouTube subtitles
-  // In a real app, you would use YouTube's API to fetch actual subtitles
-  Future<List<Subtitle>> _fetchYouTubeSubtitles(String videoId) async {
-    // This is a mock implementation
-    // In a real app, you'd integrate with YouTube Data API or another service
-    await Future.delayed(const Duration(milliseconds: 500)); // Simulate network delay
-    
-    // Return some mock subtitles based on the video ID to make them unique
-    return [
-      Subtitle(
-        startTime: 0,
-        endTime: 3000,
-        text: 'Hello and welcome to this video!',
-      ),
-      Subtitle(
-        startTime: 3000,
-        endTime: 6000,
-        text: 'Today we\'ll learn something new.',
-      ),
-      Subtitle(
-        startTime: 6000,
-        endTime: 10000,
-        text: 'This is a caption example for video $videoId.',
-      ),
-    ];
   }
   
   // Processes TikTok videos - would need TikTok API integration

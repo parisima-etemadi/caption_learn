@@ -301,9 +301,53 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _isYoutubeVideo 
-                  ? _buildYoutubePlayer()
-                  : _buildVideoPlayer(),
+                Stack(
+                  children: [
+                    // Video player section with colored background
+                    Container(
+                      color: Colors.black,
+                      width: double.infinity,
+                      child: _isYoutubeVideo 
+                        ? _buildYoutubePlayer()
+                        : _buildVideoPlayer(),
+                    ),
+                    
+                    // Word count indicator like in Lingopie
+                    if (_videoContent != null)
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.school,
+                              size: 16,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Words Learned',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                // Script section
                 _buildSubtitlesSection(),
               ],
             ),
@@ -381,37 +425,89 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final words = subtitle.text.split(' ');
     
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.7),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.3),
+          width: 1,
+        ),
       ),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 4,
-        children: words.map((word) {
-          // Remove punctuation for the display word
-          final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '');
-          
-          return InkWell(
-            onTap: () => _selectWord(cleanWord),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Display current word in larger text if a word is selected
+          if (_selectedWord != null)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                color: Colors.transparent,
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                word,
+                _selectedWord!.word,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-          );
-        }).toList(),
+          
+          // Display the full subtitle with tappable words
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 4,
+            runSpacing: 8,
+            children: words.map((word) {
+              // Remove punctuation for the selection
+              final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '');
+              final isHighlighted = _selectedWord != null && 
+                                    _selectedWord!.word.toLowerCase() == cleanWord.toLowerCase();
+              
+              return InkWell(
+                onTap: () => _selectWord(cleanWord),
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: isHighlighted 
+                        ? Theme.of(context).colorScheme.primary.withOpacity(0.7)
+                        : Colors.transparent,
+                  ),
+                  child: Text(
+                    word,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          
+          // Display translation if available (this would need to be added to your model)
+          // if (_videoContent!.translationEnabled)
+          //   Padding(
+          //     padding: const EdgeInsets.only(top: 8),
+          //     child: Text(
+          //       "Translation text would go here",
+          //       style: const TextStyle(
+          //         color: Colors.white70,
+          //         fontSize: 16,
+          //         fontStyle: FontStyle.italic,
+          //       ),
+          //       textAlign: TextAlign.center,
+          //     ),
+          //   ),
+        ],
       ),
     );
   }
@@ -448,47 +544,193 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
     
     return Expanded(
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _videoContent!.subtitles.length,
-        itemBuilder: (context, index) {
-          final subtitle = _videoContent!.subtitles[index];
-          final isCurrentSubtitle = index == _currentSubtitleIndex;
-          
-          return Card(
-            elevation: isCurrentSubtitle ? 3 : 1,
-            color: isCurrentSubtitle 
-                ? Theme.of(context).colorScheme.primaryContainer
-                : null,
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              title: Text(
-                subtitle.text,
-                style: TextStyle(
-                  fontWeight: isCurrentSubtitle ? FontWeight.bold : FontWeight.normal,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Caption header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Transcript',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.more_vert),
+                        onPressed: () {
+                          // Options menu
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close),
+                        onPressed: () {
+                          // This would typically toggle transcript view
+                          // For now we'll just keep it visible
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            
+            // Divider
+            Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.2)),
+            
+            // Scripts list with timestamps
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: _videoContent!.subtitles.length,
+                itemBuilder: (context, index) {
+                  final subtitle = _videoContent!.subtitles[index];
+                  final isCurrentSubtitle = index == _currentSubtitleIndex;
+                  
+                  return InkWell(
+                    onTap: () {
+                      if (!_isYoutubeVideo && _controller != null) {
+                        _controller!.seekTo(Duration(milliseconds: subtitle.startTime));
+                        _controller!.play();
+                      } else if (_youtubeController != null) {
+                        _youtubeController!.seekTo(Duration(milliseconds: subtitle.startTime));
+                        _youtubeController!.play();
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      color: isCurrentSubtitle 
+                          ? Colors.blue.withOpacity(0.1)
+                          : Colors.transparent,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Timestamp in blue bubble
+                          Container(
+                            width: 50,
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            margin: const EdgeInsets.only(right: 12, top: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Center(
+                              child: Text(
+                                _formatTimestampCNN(subtitle.startTime),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.blue[700],
+                                ),
+                              ),
+                            ),
+                          ),
+                          
+                          // Subtitle text with word selection capability
+                          Expanded(
+                            child: GestureDetector(
+                              onLongPress: () {
+                                _showWordSelectionDialog(subtitle.text);
+                              },
+                              child: _buildTappableText(subtitle.text, isCurrentSubtitle),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            
+            // Language selector at bottom
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.grey.withOpacity(0.2), width: 1),
                 ),
               ),
-              subtitle: Text(
-                '${_formatDuration(subtitle.startTime)} - ${_formatDuration(subtitle.endTime)}',
+              child: Text(
+                'English',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black,
+                ),
               ),
-              onTap: () {
-                if (!_isYoutubeVideo && _controller != null) {
-                  _controller!.seekTo(Duration(milliseconds: subtitle.startTime));
-                }
-                // For YouTube videos, seeking is more complex and might require
-                // using the YouTube player controller's API
-              },
-              onLongPress: () {
-                // Show a context menu to add selected words to vocabulary
-                _showWordSelectionDialog(subtitle.text);
-              },
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
   
+  Widget _buildTappableText(String text, bool isHighlighted) {
+    final words = text.split(' ');
+    
+    return Wrap(
+      spacing: 4,
+      children: words.map((word) {
+        final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '');
+        
+        if (cleanWord.isEmpty) {
+          return Text(
+            word,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.black,
+              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+            ),
+          );
+        }
+        
+        return InkWell(
+          onTap: () => _selectWord(cleanWord),
+          borderRadius: BorderRadius.circular(4),
+          child: Text(
+            word,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.black,
+              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+  
+  String _formatTimestampCNN(int milliseconds) {
+    final duration = Duration(milliseconds: milliseconds);
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
   String _formatDuration(int milliseconds) {
     final duration = Duration(milliseconds: milliseconds);
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
