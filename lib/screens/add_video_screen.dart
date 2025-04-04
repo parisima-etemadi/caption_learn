@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/video_service.dart';
 import '../services/storage_service.dart';
-import '../models/video_content.dart';
 
 class AddVideoScreen extends StatefulWidget {
   const AddVideoScreen({super.key});

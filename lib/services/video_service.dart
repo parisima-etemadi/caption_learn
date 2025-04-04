@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/video_content.dart';
 import 'youtube_service.dart';
+import 'tiktok_service.dart';
 
 class VideoService {
   final YoutubeExplode _youtubeExplode = YoutubeExplode();
@@ -82,20 +83,50 @@ class VideoService {
   }
   
   // Processes TikTok videos - would need TikTok API integration
-  Future<VideoContent> _processTikTokVideo(String url) async {
-    // This is a placeholder - in a real app, you would integrate with TikTok's API
-    // TikTok doesn't have an official public API for this, so would require custom solutions
+ Future<VideoContent> _processTikTokVideo(String url) async {
+  try {
+    // Get TikTok video details using our new service
+    final videoDetails = await TikTokService.getTikTokVideoData(url);
+    final title = videoDetails['title'] ?? 'TikTok Video';
     
-    // For demonstration purposes, we'll return a mock VideoContent
+    // Try direct video extraction first
+    String? directVideoUrl = await TikTokService.attemptDirectVideoExtraction(url);
+    
+    // If we found a direct video URL, download it
+    String? localPath;
+    if (directVideoUrl != null && directVideoUrl.isNotEmpty) {
+      final fileName = 'tiktok_${DateTime.now().millisecondsSinceEpoch}';
+      localPath = await TikTokService.downloadTikTokVideo(
+        directVideoUrl,
+        fileName
+      );
+    }
+    
+    // Try to extract captions/subtitles
+    final subtitles = await TikTokService.extractTikTokCaptions(url);
+    
+    return VideoContent(
+      id: _uuid.v4(),
+      title: title,
+      sourceUrl: url,
+      source: VideoSource.tiktok,
+      localPath: localPath, // This might be null if we couldn't download
+      subtitles: subtitles,
+      dateAdded: DateTime.now(),
+    );
+  } catch (e) {
+    print('Error processing TikTok video: $e');
+    // Return a basic VideoContent object even if there was an error
     return VideoContent(
       id: _uuid.v4(),
       title: 'TikTok Video',
       sourceUrl: url,
       source: VideoSource.tiktok,
-      subtitles: [], // Would need to implement subtitle extraction for TikTok
+      subtitles: [],
       dateAdded: DateTime.now(),
     );
   }
+}
   
   // Processes Instagram videos - would need Instagram API integration
   Future<VideoContent> _processInstagramVideo(String url) async {

@@ -7,7 +7,8 @@ import '../models/video_content.dart';
 import '../models/vocabulary_item.dart';
 import '../services/storage_service.dart';
 import 'vocabulary_screen.dart';
-
+import '../widgets/enhanced_tiktok_player.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
   
@@ -31,7 +32,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   int _currentSubtitleIndex = -1;
   VocabularyItem? _selectedWord;
   bool _isYoutubeVideo = false;
-  
+  bool _isTikTokVideo = false;
   final TextEditingController _definitionController = TextEditingController();
   final TextEditingController _exampleController = TextEditingController();
   
@@ -93,11 +94,46 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       }
     }
   }
-  
   Future<void> _initializeVideoPlayer() async {
-    if (_videoContent == null) return;
-    
-    if (_videoContent!.source == VideoSource.local && _videoContent!.localPath != null) {
+  if (_videoContent == null) return;
+  
+  if (_videoContent!.source == VideoSource.local && _videoContent!.localPath != null) {
+    _controller = VideoPlayerController.file(File(_videoContent!.localPath!));
+    try {
+      await _controller!.initialize();
+      setState(() {
+        _isInitialized = true;
+      });
+      _controller!.play();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error initializing video: ${e.toString()}')),
+      );
+    }
+  } else if (_videoContent!.source == VideoSource.youtube) {
+    // YouTube handling remains the same
+    final videoId = YoutubePlayer.convertUrlToId(_videoContent!.sourceUrl);
+    if (videoId != null) {
+      _youtubeController = YoutubePlayerController(
+        initialVideoId: videoId,
+        flags: const YoutubePlayerFlags(
+          autoPlay: true,
+          mute: false,
+        ),
+      );
+      setState(() {
+        _isInitialized = true;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid YouTube URL')),
+      );
+      Navigator.pop(context);
+    }
+  } else if (_videoContent!.source == VideoSource.tiktok) {
+    // For TikTok videos, check if we have a local downloaded copy first
+    if (_videoContent!.localPath != null) {
+      // If we have a downloaded copy, use the regular video player
       _controller = VideoPlayerController.file(File(_videoContent!.localPath!));
       try {
         await _controller!.initialize();
@@ -106,39 +142,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         });
         _controller!.play();
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error initializing video: ${e.toString()}')),
-        );
-      }
-    } else if (_videoContent!.source == VideoSource.youtube) {
-      // Extract YouTube video ID from URL
-      final videoId = YoutubePlayer.convertUrlToId(_videoContent!.sourceUrl);
-      if (videoId != null) {
-        _youtubeController = YoutubePlayerController(
-          initialVideoId: videoId,
-          flags: const YoutubePlayerFlags(
-            autoPlay: true,
-            mute: false,
-          ),
-        );
+        // If there's an error with the local file, fall back to WebView
         setState(() {
           _isInitialized = true;
+          _isTikTokVideo = true;
         });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid YouTube URL')),
-        );
-        Navigator.pop(context);
       }
     } else {
-      // For other sources, you'd need appropriate players
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This video source is not yet supported for playback')),
-      );
-      Navigator.pop(context);
+      // No local file, use WebView
+      setState(() {
+        _isInitialized = true;
+        _isTikTokVideo = true;
+      });
     }
+  } else {
+    // Other sources handling
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('This video source is not yet supported for playback')),
+    );
+    Navigator.pop(context);
   }
-  
+}
+
   void _updateCurrentSubtitle() {
     if (_controller == null || _videoContent == null || !_controller!.value.isPlaying) {
       return;
@@ -309,7 +334,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       width: double.infinity,
                       child: _isYoutubeVideo 
                         ? _buildYoutubePlayer()
-                        : _buildVideoPlayer(),
+                           : _isTikTokVideo
+          ? _buildTikTokPlayer()
+          : _buildVideoPlayer(),
                     ),
                     
                     // Word count indicator like in Lingopie
@@ -354,32 +381,50 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
   
-  Widget _buildVideoPlayer() {
-    if (!_isInitialized || _controller == null) {
-      return const Center(
-        child: Text('Error initializing video player'),
-      );
-    }
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _showControls = !_showControls;
-        });
-      },
-      child: AspectRatio(
-        aspectRatio: _controller!.value.aspectRatio,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            VideoPlayer(_controller!),
-            if (_showControls)
-              _buildVideoControls(),
-          ],
-        ),
-      ),
+Widget _buildVideoPlayer() {
+  if (!_isInitialized) {
+    return const Center(
+      child: Text('Error initializing video player'),
     );
   }
+  
+  // For TikTok videos
+  if (_videoContent!.source == VideoSource.tiktok) {
+    return EnhancedTikTokPlayer(
+      videoUrl: _videoContent!.sourceUrl,
+      onPlay: () {
+        setState(() {
+          // Update UI state when video plays
+        });
+      },
+      onPause: () {
+        setState(() {
+          // Update UI state when video pauses
+        });
+      },
+    );
+  }
+  
+  // Existing code for other video types
+  return GestureDetector(
+    onTap: () {
+      setState(() {
+        _showControls = !_showControls;
+      });
+    },
+    child: AspectRatio(
+      aspectRatio: _controller!.value.aspectRatio,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          VideoPlayer(_controller!),
+          if (_showControls)
+            _buildVideoControls(),
+        ],
+      ),
+    ),
+  );
+}
   
   Widget _buildYoutubePlayer() {
     if (!_isInitialized || _youtubeController == null) {
@@ -402,6 +447,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
   
+  Widget _buildTikTokPlayer() {
+  if (!_isInitialized) {
+    return const Center(
+      child: Text('Error initializing TikTok player'),
+    );
+  }
+  
+  return EnhancedTikTokPlayer(
+    videoUrl: _videoContent!.sourceUrl,
+    onPlay: () {
+      setState(() {
+        // Update any state if needed when video plays
+      });
+    },
+    onPause: () {
+      setState(() {
+        // Update any state if needed when video pauses
+      });
+    },
+  );
+}
   Widget _buildVideoControls() {
     return Container(
       color: Colors.black.withOpacity(0.5),
