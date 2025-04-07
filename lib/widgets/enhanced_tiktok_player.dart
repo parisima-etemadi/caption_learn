@@ -7,11 +7,11 @@ class EnhancedTikTokPlayer extends StatefulWidget {
   final Function? onPause;
   
   const EnhancedTikTokPlayer({
-    Key? key,
+    super.key,
     required this.videoUrl,
     this.onPlay,
     this.onPause,
-  }) : super(key: key);
+  });
 
   @override
   _EnhancedTikTokPlayerState createState() => _EnhancedTikTokPlayerState();
