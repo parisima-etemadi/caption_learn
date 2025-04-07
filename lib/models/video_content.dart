@@ -1,5 +1,4 @@
-
-enum VideoSource { youtube, tiktok, instagram, local }
+enum VideoSource { youtube, instagram, local }
 
 class Subtitle {
   final int startTime; // in milliseconds

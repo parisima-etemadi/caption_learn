@@ -197,7 +197,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
             controller: _urlController,
             decoration: const InputDecoration(
               labelText: 'Video URL',
-              hintText: 'Paste YouTube, TikTok or Instagram URL',
+              hintText: 'Paste YouTube or Instagram URL',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.link),
             ),
@@ -209,10 +209,9 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
               
               final url = value.toLowerCase();
               if (!url.contains('youtube.com') && 
-                  !url.contains('youtu.be') && 
-                  !url.contains('tiktok.com') &&
+                  !url.contains('youtu.be') &&
                   !url.contains('instagram.com')) {
-                return 'Only YouTube, TikTok and Instagram URLs are supported';
+                return 'Only YouTube and Instagram URLs are supported';
               }
               
               return null;
@@ -318,8 +317,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _buildPlatformItem(Icons.play_circle_filled, 'YouTube', Colors.red),
-            _buildPlatformItem(Icons.music_note, 'TikTok', Colors.black),
-            _buildPlatformItem(Icons.camera_alt, 'Instagram', Colors.purple),
+            _buildPlatformItem(Icons.music_note, 'Instagram', Colors.purple),
           ],
         ),
       ],

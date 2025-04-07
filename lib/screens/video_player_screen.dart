@@ -7,7 +7,7 @@ import '../models/video_content.dart';
 import '../models/vocabulary_item.dart';
 import '../services/storage_service.dart';
 import 'vocabulary_screen.dart';
-import '../widgets/enhanced_tiktok_player.dart';
+
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
   
@@ -31,7 +31,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   int _currentSubtitleIndex = -1;
   VocabularyItem? _selectedWord;
   bool _isYoutubeVideo = false;
-  bool _isTikTokVideo = false;
   final TextEditingController _definitionController = TextEditingController();
   final TextEditingController _exampleController = TextEditingController();
   
@@ -93,7 +92,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       }
     }
   }
-  Future<void> _initializeVideoPlayer() async {
+
+Future<void> _initializeVideoPlayer() async {
   if (_videoContent == null) return;
   
   if (_videoContent!.source == VideoSource.local && _videoContent!.localPath != null) {
@@ -129,31 +129,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       );
       Navigator.pop(context);
     }
-  } else if (_videoContent!.source == VideoSource.tiktok) {
-    // For TikTok videos, check if we have a local downloaded copy first
-    if (_videoContent!.localPath != null) {
-      // If we have a downloaded copy, use the regular video player
-      _controller = VideoPlayerController.file(File(_videoContent!.localPath!));
-      try {
-        await _controller!.initialize();
-        setState(() {
-          _isInitialized = true;
-        });
-        _controller!.play();
-      } catch (e) {
-        // If there's an error with the local file, fall back to WebView
-        setState(() {
-          _isInitialized = true;
-          _isTikTokVideo = true;
-        });
-      }
-    } else {
-      // No local file, use WebView
-      setState(() {
-        _isInitialized = true;
-        _isTikTokVideo = true;
-      });
-    }
+  } else if (_videoContent!.source == VideoSource.instagram) {
+    // Instagram videos
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Instagram videos are currently not supported for playback')),
+    );
+    Navigator.pop(context);
   } else {
     // Other sources handling
     ScaffoldMessenger.of(context).showSnackBar(
@@ -333,9 +314,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       width: double.infinity,
                       child: _isYoutubeVideo 
                         ? _buildYoutubePlayer()
-                           : _isTikTokVideo
-          ? _buildTikTokPlayer()
-          : _buildVideoPlayer(),
+                        : _buildVideoPlayer(),
                     ),
                     
                     // Word count indicator like in Lingopie
@@ -387,24 +366,7 @@ Widget _buildVideoPlayer() {
     );
   }
   
-  // For TikTok videos
-  if (_videoContent!.source == VideoSource.tiktok) {
-    return EnhancedTikTokPlayer(
-      videoUrl: _videoContent!.sourceUrl,
-      onPlay: () {
-        setState(() {
-          // Update UI state when video plays
-        });
-      },
-      onPause: () {
-        setState(() {
-          // Update UI state when video pauses
-        });
-      },
-    );
-  }
-  
-  // Existing code for other video types
+  // Regular video player for local videos
   return GestureDetector(
     onTap: () {
       setState(() {
@@ -446,27 +408,6 @@ Widget _buildVideoPlayer() {
     );
   }
   
-  Widget _buildTikTokPlayer() {
-  if (!_isInitialized) {
-    return const Center(
-      child: Text('Error initializing TikTok player'),
-    );
-  }
-  
-  return EnhancedTikTokPlayer(
-    videoUrl: _videoContent!.sourceUrl,
-    onPlay: () {
-      setState(() {
-        // Update any state if needed when video plays
-      });
-    },
-    onPause: () {
-      setState(() {
-        // Update any state if needed when video pauses
-      });
-    },
-  );
-}
   Widget _buildVideoControls() {
     return Container(
       color: Colors.black.withOpacity(0.5),

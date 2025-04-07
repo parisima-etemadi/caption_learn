@@ -4,7 +4,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/video_content.dart';
 import 'youtube_service.dart';
-import 'tiktok_service.dart';
 
 class VideoService {
   final YoutubeExplode _youtubeExplode = YoutubeExplode();
@@ -14,8 +13,6 @@ class VideoService {
   VideoSource detectSourceType(String url) {
     if (url.contains('youtube.com') || url.contains('youtu.be')) {
       return VideoSource.youtube;
-    } else if (url.contains('tiktok.com')) {
-      return VideoSource.tiktok;
     } else if (url.contains('instagram.com')) {
       return VideoSource.instagram;
     } else {
@@ -30,8 +27,6 @@ class VideoService {
     switch (videoSource) {
       case VideoSource.youtube:
         return _processYouTubeVideo(url);
-      case VideoSource.tiktok:
-        return _processTikTokVideo(url);
       case VideoSource.instagram:
         return _processInstagramVideo(url);
       default:
@@ -81,52 +76,6 @@ class VideoService {
       throw Exception('Failed to process YouTube video: $e');
     }
   }
-  
-  // Processes TikTok videos - would need TikTok API integration
- Future<VideoContent> _processTikTokVideo(String url) async {
-  try {
-    // Get TikTok video details using our new service
-    final videoDetails = await TikTokService.getTikTokVideoData(url);
-    final title = videoDetails['title'] ?? 'TikTok Video';
-    
-    // Try direct video extraction first
-    String? directVideoUrl = await TikTokService.attemptDirectVideoExtraction(url);
-    
-    // If we found a direct video URL, download it
-    String? localPath;
-    if (directVideoUrl != null && directVideoUrl.isNotEmpty) {
-      final fileName = 'tiktok_${DateTime.now().millisecondsSinceEpoch}';
-      localPath = await TikTokService.downloadTikTokVideo(
-        directVideoUrl,
-        fileName
-      );
-    }
-    
-    // Try to extract captions/subtitles
-    final subtitles = await TikTokService.extractTikTokCaptions(url);
-    
-    return VideoContent(
-      id: _uuid.v4(),
-      title: title,
-      sourceUrl: url,
-      source: VideoSource.tiktok,
-      localPath: localPath, // This might be null if we couldn't download
-      subtitles: subtitles,
-      dateAdded: DateTime.now(),
-    );
-  } catch (e) {
-    print('Error processing TikTok video: $e');
-    // Return a basic VideoContent object even if there was an error
-    return VideoContent(
-      id: _uuid.v4(),
-      title: 'TikTok Video',
-      sourceUrl: url,
-      source: VideoSource.tiktok,
-      subtitles: [],
-      dateAdded: DateTime.now(),
-    );
-  }
-}
   
   // Processes Instagram videos - would need Instagram API integration
   Future<VideoContent> _processInstagramVideo(String url) async {

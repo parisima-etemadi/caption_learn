@@ -181,10 +181,6 @@ class _HomeScreenState extends State<HomeScreen> {
         iconData = Icons.play_circle_filled;
         color = Colors.red;
         break;
-      case VideoSource.tiktok:
-        iconData = Icons.music_note;
-        color = Colors.black;
-        break;
       case VideoSource.instagram:
         iconData = Icons.camera_alt;
         color = Colors.purple;
@@ -210,8 +206,6 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (source) {
       case VideoSource.youtube:
         return 'YouTube';
-      case VideoSource.tiktok:
-        return 'TikTok';
       case VideoSource.instagram:
         return 'Instagram';
       case VideoSource.local:
@@ -223,8 +217,6 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (source) {
       case VideoSource.youtube:
         return Colors.red;
-      case VideoSource.tiktok:
-        return Colors.black;
       case VideoSource.instagram:
         return Colors.purple;
       case VideoSource.local:
