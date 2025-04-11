@@ -13,9 +13,9 @@ class Subtitle {
   
   factory Subtitle.fromJson(Map<String, dynamic> json) {
     return Subtitle(
-      startTime: json['startTime'],
-      endTime: json['endTime'],
-      text: json['text'],
+      startTime: json['startTime'] ?? 0,
+      endTime: json['endTime'] ?? 0,
+      text: json['text'] ?? '',
     );
   }
   
@@ -54,12 +54,14 @@ class VideoContent {
       sourceUrl: json['sourceUrl'],
       source: VideoSource.values.firstWhere(
         (e) => e.toString() == 'VideoSource.${json['source']}',
+        orElse: () => VideoSource.local,
       ),
       localPath: json['localPath'],
-      subtitles: (json['subtitles'] as List)
+      subtitles: (json['subtitles'] as List? ?? [])
+          .where((subtitle) => subtitle != null)
           .map((subtitle) => Subtitle.fromJson(subtitle))
           .toList(),
-      dateAdded: DateTime.parse(json['dateAdded']),
+      dateAdded: DateTime.tryParse(json['dateAdded']) ?? DateTime.now(),
     );
   }
   
