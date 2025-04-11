@@ -40,7 +40,19 @@ class StorageService {
     for (final videoJson in videos) {
       try {
         final Map<String, dynamic> json = jsonDecode(videoJson);
-        result.add(VideoContent.fromJson(json));
+        // Verify that the required fields exist in the parsed JSON
+        if (json.containsKey('id') && json.containsKey('title') && 
+            json.containsKey('sourceUrl') && json.containsKey('source') &&
+            json.containsKey('subtitles') && json.containsKey('dateAdded')) {
+          // Check if subtitles is a list
+          if (json['subtitles'] is List) {
+            result.add(VideoContent.fromJson(json));
+          } else {
+            print('Error parsing video: subtitles is not a list');
+          }
+        } else {
+          print('Error parsing video: Missing required fields in JSON');
+        }
       } catch (e) {
         // Skip invalid entries instead of failing the entire operation
         print('Error parsing video: $e');

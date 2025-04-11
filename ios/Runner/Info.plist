@@ -46,6 +46,12 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>io.flutter.embedded_views_preview</key>
-<true/>
+	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library to select videos</string>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to your camera to record videos</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to your microphone when recording videos</string>
 </dict>
 </plist>
