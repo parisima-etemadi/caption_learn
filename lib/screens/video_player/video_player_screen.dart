@@ -8,7 +8,7 @@ import '../../widgets/indicators/learned_words_indicator.dart';
 import '../../widgets/player/local_video_player_widget.dart';
 import '../../widgets/player/youtube_player_widget.dart';
 import '../../widgets/subtitles/transcript_section.dart';
-import '../vocabulary_screen.dart';
+import '../../features/vocabulary/screens/vocabulary_screen.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;

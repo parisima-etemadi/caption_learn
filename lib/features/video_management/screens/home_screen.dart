@@ -1,12 +1,13 @@
+import 'package:caption_learn/screens/add_video_screen.dart';
+import 'package:caption_learn/screens/settings_screen.dart';
 import 'package:caption_learn/screens/video_player/video_player_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/services/storage_repository.dart';
+import '../../../core/utils/logger.dart';
 import '../models/video_content.dart';
-import '../services/storage_service.dart';
-import '../providers/theme_provider.dart';
-import '../utils/logger.dart';
-import 'add_video_screen.dart';
-import 'settings_screen.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -92,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
 
       try {
-        await _videoRepository.deleteVideo(id);
+        await _videoRepository.delete(id);
         await _loadVideos();
       } catch (e) {
         _logger.e('Error deleting video', e);
@@ -108,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Caption Learn'),
+        title: const Text(AppConstants.appName),
         centerTitle: true,
         actions: [
           IconButton(
@@ -204,14 +205,14 @@ class _HomeScreenState extends State<HomeScreen> {
     
     return ListView.builder(
       itemCount: _videos.length,
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(AppConstants.smallPadding),
       itemBuilder: (context, index) => _buildVideoItem(_videos[index]),
     );
   }
 
   Widget _buildVideoItem(VideoContent video) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: AppConstants.smallPadding),
       elevation: 2,
       child: ListTile(
         contentPadding: const EdgeInsets.all(12),

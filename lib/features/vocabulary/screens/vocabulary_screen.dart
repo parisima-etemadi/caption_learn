@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/vocabulary_item.dart';
-import '../services/storage_service.dart';
+import '../../../models/vocabulary_item.dart';
+import '../../../services/storage_service.dart';
 
 class VocabularyScreen extends StatefulWidget {
   final String? videoId; // If provided, shows vocabulary for specific video, otherwise all

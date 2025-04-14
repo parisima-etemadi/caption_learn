@@ -1,31 +1,14 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/video_content.dart';
-import '../models/vocabulary_item.dart';
+import '../../features/video_management/models/video_content.dart';
+import '../../features/vocabulary/models/vocabulary_item.dart';
+import '../constants/app_constants.dart';
 import '../utils/logger.dart';
+import 'storage_repository.dart';
 
-/// Interface for video storage operations
-abstract class VideoStorageRepository {
-  Future<void> saveVideo(VideoContent video);
-  Future<List<VideoContent>> getVideos();
-  Future<VideoContent?> getVideoById(String id);
-  Future<void> deleteVideo(String id);
-}
-
-/// Interface for vocabulary storage operations
-abstract class VocabularyStorageRepository {
-  Future<void> saveVocabularyItem(VocabularyItem item);
-  Future<List<VocabularyItem>> getVocabularyItems();
-  Future<List<VocabularyItem>> getVocabularyByVideoId(String videoId);
-  Future<void> deleteVocabularyItem(String id);
-  Future<void> deleteVocabularyByVideoId(String videoId);
-}
-
-/// Implementation of both storage repositories using SharedPreferences
-class StorageService implements VideoStorageRepository, VocabularyStorageRepository {
-  static const String _videosKey = 'saved_videos';
-  static const String _vocabularyKey = 'saved_vocabulary';
-  final Logger _logger = const Logger('StorageService');
+/// Implementation of video storage repository using SharedPreferences
+class VideoStorage implements VideoStorageRepository {
+  final Logger _logger = const Logger('VideoStorage');
   
   // For easier testing and dependency injection
   Future<SharedPreferences> _getPreferences() async {
@@ -33,10 +16,46 @@ class StorageService implements VideoStorageRepository, VocabularyStorageReposit
   }
 
   @override
+  Future<void> save(VideoContent video) async {
+    try {
+      await saveVideo(video);
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
+  @override
+  Future<VideoContent?> getById(String id) async {
+    try {
+      return await getVideoById(id);
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
+  @override
+  Future<List<VideoContent>> getAll() async {
+    try {
+      return await getVideos();
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
+  @override
+  Future<void> delete(String id) async {
+    try {
+      await deleteVideo(id);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
   Future<void> saveVideo(VideoContent video) async {
     try {
       final prefs = await _getPreferences();
-      final List<String> videos = prefs.getStringList(_videosKey) ?? [];
+      final List<String> videos = prefs.getStringList(AppConstants.videosStorageKey) ?? [];
       
       // Convert video to JSON string
       final videoJson = jsonEncode(video.toJson());
@@ -55,7 +74,7 @@ class StorageService implements VideoStorageRepository, VocabularyStorageReposit
         _logger.i('Added new video with ID: ${video.id}');
       }
       
-      await prefs.setStringList(_videosKey, videos);
+      await prefs.setStringList(AppConstants.videosStorageKey, videos);
     } catch (e, stackTrace) {
       _logger.e('Failed to save video', e, stackTrace);
       rethrow;
@@ -66,7 +85,7 @@ class StorageService implements VideoStorageRepository, VocabularyStorageReposit
   Future<List<VideoContent>> getVideos() async {
     try {
       final prefs = await _getPreferences();
-      final List<String> videos = prefs.getStringList(_videosKey) ?? [];
+      final List<String> videos = prefs.getStringList(AppConstants.videosStorageKey) ?? [];
       
       final List<VideoContent> result = [];
       
@@ -117,20 +136,68 @@ class StorageService implements VideoStorageRepository, VocabularyStorageReposit
   Future<void> deleteVideo(String id) async {
     try {
       final prefs = await _getPreferences();
-      final List<String> videos = prefs.getStringList(_videosKey) ?? [];
+      final List<String> videos = prefs.getStringList(AppConstants.videosStorageKey) ?? [];
       
       final newList = videos.where((v) {
         final Map<String, dynamic> decoded = jsonDecode(v);
         return decoded['id'] != id;
       }).toList();
       
-      await prefs.setStringList(_videosKey, newList);
+      await prefs.setStringList(AppConstants.videosStorageKey, newList);
       _logger.i('Deleted video with ID: $id');
       
       // Also delete associated vocabulary items
-      await deleteVocabularyByVideoId(id);
+      VocabularyStorage().deleteVocabularyByVideoId(id);
     } catch (e, stackTrace) {
       _logger.e('Failed to delete video', e, stackTrace);
+      rethrow;
+    }
+  }
+}
+
+/// Implementation of vocabulary storage repository using SharedPreferences
+class VocabularyStorage implements VocabularyStorageRepository {
+  final Logger _logger = const Logger('VocabularyStorage');
+  
+  // For easier testing and dependency injection
+  Future<SharedPreferences> _getPreferences() async {
+    return await SharedPreferences.getInstance();
+  }
+  
+  @override
+  Future<void> save(VocabularyItem item) async {
+    try {
+      await saveVocabularyItem(item);
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
+  @override
+  Future<List<VocabularyItem>> getAll() async {
+    try {
+      return await getVocabularyItems();
+    } catch (e) {
+      rethrow;
+    }
+  }
+  
+  @override
+  Future<VocabularyItem?> getById(String id) async {
+    try {
+      final items = await getVocabularyItems();
+      return items.firstWhere((item) => item.id == id, orElse: () => throw Exception('Vocabulary item not found'));
+    } catch (e) {
+      _logger.w('Vocabulary item with ID $id not found');
+      return null;
+    }
+  }
+  
+  @override
+  Future<void> delete(String id) async {
+    try {
+      await deleteVocabularyItem(id);
+    } catch (e) {
       rethrow;
     }
   }
@@ -139,7 +206,7 @@ class StorageService implements VideoStorageRepository, VocabularyStorageReposit
   Future<void> saveVocabularyItem(VocabularyItem item) async {
     try {
       final prefs = await _getPreferences();
-      final List<String> vocabulary = prefs.getStringList(_vocabularyKey) ?? [];
+      final List<String> vocabulary = prefs.getStringList(AppConstants.vocabularyStorageKey) ?? [];
       
       // Convert item to JSON string
       final itemJson = jsonEncode(item.toJson());
@@ -158,7 +225,7 @@ class StorageService implements VideoStorageRepository, VocabularyStorageReposit
         _logger.i('Added new vocabulary item with ID: ${item.id}');
       }
       
-      await prefs.setStringList(_vocabularyKey, vocabulary);
+      await prefs.setStringList(AppConstants.vocabularyStorageKey, vocabulary);
     } catch (e, stackTrace) {
       _logger.e('Failed to save vocabulary item', e, stackTrace);
       rethrow;
@@ -169,7 +236,7 @@ class StorageService implements VideoStorageRepository, VocabularyStorageReposit
   Future<List<VocabularyItem>> getVocabularyItems() async {
     try {
       final prefs = await _getPreferences();
-      final List<String> vocabulary = prefs.getStringList(_vocabularyKey) ?? [];
+      final List<String> vocabulary = prefs.getStringList(AppConstants.vocabularyStorageKey) ?? [];
       
       final List<VocabularyItem> result = [];
       
@@ -207,14 +274,14 @@ class StorageService implements VideoStorageRepository, VocabularyStorageReposit
   Future<void> deleteVocabularyItem(String id) async {
     try {
       final prefs = await _getPreferences();
-      final List<String> vocabulary = prefs.getStringList(_vocabularyKey) ?? [];
+      final List<String> vocabulary = prefs.getStringList(AppConstants.vocabularyStorageKey) ?? [];
       
       final newList = vocabulary.where((v) {
         final Map<String, dynamic> decoded = jsonDecode(v);
         return decoded['id'] != id;
       }).toList();
       
-      await prefs.setStringList(_vocabularyKey, newList);
+      await prefs.setStringList(AppConstants.vocabularyStorageKey, newList);
       _logger.i('Deleted vocabulary item with ID: $id');
     } catch (e, stackTrace) {
       _logger.e('Failed to delete vocabulary item', e, stackTrace);
@@ -226,7 +293,7 @@ class StorageService implements VideoStorageRepository, VocabularyStorageReposit
   Future<void> deleteVocabularyByVideoId(String videoId) async {
     try {
       final prefs = await _getPreferences();
-      final List<String> vocabulary = prefs.getStringList(_vocabularyKey) ?? [];
+      final List<String> vocabulary = prefs.getStringList(AppConstants.vocabularyStorageKey) ?? [];
       
       final List<String> originalList = List.from(vocabulary);
       final newList = vocabulary.where((v) {
@@ -234,7 +301,7 @@ class StorageService implements VideoStorageRepository, VocabularyStorageReposit
         return decoded['sourceVideoId'] != videoId;
       }).toList();
       
-      await prefs.setStringList(_vocabularyKey, newList);
+      await prefs.setStringList(AppConstants.vocabularyStorageKey, newList);
       
       final int deletedCount = originalList.length - newList.length;
       _logger.i('Deleted $deletedCount vocabulary items for video: $videoId');
