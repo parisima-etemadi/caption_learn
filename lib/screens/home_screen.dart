@@ -1,10 +1,10 @@
+import 'package:caption_learn/screens/video_player/video_player_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/video_content.dart';
 import '../services/storage_service.dart';
 import '../providers/theme_provider.dart';
 import 'add_video_screen.dart';
-import 'video_player_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
