@@ -37,7 +37,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   final TextEditingController _exampleController = TextEditingController();
   bool _showAddTranscriptButton = false;
   Timer? _positionTimer;
-  
+  bool _isYoutubePlayerReady = false;
  @override
 void initState() {
   super.initState();
@@ -81,49 +81,52 @@ void _setupYouTubeListener() {
   }
 }
   
-  Future<void> _loadVideo() async {
-    setState(() {
-      _isLoading = true;
-    });
+Future<void> _loadVideo() async {
+  setState(() {
+    _isLoading = true;
+  });
+  
+  try {
+    final video = await _storageService.getVideoById(widget.videoId);
     
-    try {
-      final video = await _storageService.getVideoById(widget.videoId);
-      
-      if (video == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Video not found')),
-          );
-          Navigator.pop(context);
-        }
-        return;
-      }
-      
-      setState(() {
-        _videoContent = video;
-        _isYoutubeVideo = video.source == VideoSource.youtube;
-      });
-      
-      await _initializeVideoPlayer();
-      
-      setState(() {
-        _isLoading = false;
-      });
-      
-      // Add a listener to update the current subtitle
-      if (!_isYoutubeVideo) {
-        _controller?.addListener(_updateCurrentSubtitle);
-      }
-      
-    } catch (e) {
+    if (video == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading video: ${e.toString()}')),
+          const SnackBar(content: Text('Video not found')),
         );
         Navigator.pop(context);
       }
+      return;
+    }
+    
+    setState(() {
+      _videoContent = video;
+      _isYoutubeVideo = video.source == VideoSource.youtube;
+    });
+    
+    // Validate and fix subtitles if needed
+    _validateAndFixSubtitles();
+    
+    await _initializeVideoPlayer();
+    
+    setState(() {
+      _isLoading = false;
+    });
+    
+    // Add a listener to update the current subtitle
+    if (!_isYoutubeVideo) {
+      _controller?.addListener(_updateCurrentSubtitle);
+    }
+    
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading video: ${e.toString()}')),
+      );
+      Navigator.pop(context);
     }
   }
+}
 
  
 
@@ -132,6 +135,7 @@ Future<void> _initializeVideoPlayer() async {
   if (_videoContent == null) return;
   
   if (_videoContent!.source == VideoSource.local && _videoContent!.localPath != null) {
+    // Local video initialization
     _controller = VideoPlayerController.file(File(_videoContent!.localPath!));
     try {
       await _controller!.initialize();
@@ -145,24 +149,33 @@ Future<void> _initializeVideoPlayer() async {
       );
     }
   } else if (_videoContent!.source == VideoSource.youtube) {
-    // YouTube handling
+    // Enhanced YouTube handling
     final videoId = YoutubePlayer.convertUrlToId(_videoContent!.sourceUrl);
     if (videoId != null) {
+      // Reset flag before initialization
+      setState(() {
+        _isYoutubePlayerReady = false;
+      });
+      
+      // Create controller with more explicit options
       _youtubeController = YoutubePlayerController(
         initialVideoId: videoId,
         flags: const YoutubePlayerFlags(
-          autoPlay: true,
+          autoPlay: false, // Start paused for more control
           mute: false,
+          disableDragSeek: false, // Allow manual seeking
+          loop: false,
+          isLive: false,
+          forceHD: false,
+          enableCaption: true,
         ),
       );
+      
       setState(() {
         _isInitialized = true;
       });
       
-      // Give the controller a moment to initialize before setting up listener
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _setupYouTubeListener();
-      });
+      // Don't immediately set up listener - will be done in onReady callback
       
       // If we don't have subtitles yet, try to fetch them again
       if (_videoContent!.subtitles.isEmpty) {
@@ -282,6 +295,9 @@ Future<void> _fetchYouTubeSubtitles(String videoId) async {
       setState(() {
         _videoContent = updatedVideoContent;
       });
+      
+      // Validate and fix subtitles if needed
+      _validateAndFixSubtitles();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -350,6 +366,122 @@ void _processManualTranscript(String text) {
         _showAddTranscriptButton = false;
       });
     }
+  }
+}
+void _seekYouTubeToTime(int milliseconds) {
+  if (_youtubeController == null) {
+    print('Cannot seek: YouTube controller is null');
+    return;
+  }
+  
+  if (!_isYoutubePlayerReady) {
+    print('Cannot seek: YouTube player not ready yet');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please wait for player to fully load...')),
+    );
+    return;
+  }
+  
+  try {
+    // Convert milliseconds to seconds for debug purposes
+    final seconds = milliseconds / 1000.0;
+    print('Seeking YouTube to: $seconds seconds (from $milliseconds ms)');
+    
+    // First pause the player for more reliable seeking
+    _youtubeController!.pause();
+    
+    // Use a small delay before seeking
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_youtubeController != null && mounted) {
+        // Create duration from milliseconds
+        final seekPosition = Duration(milliseconds: milliseconds);
+        
+        // Perform the seek operation
+        _youtubeController!.seekTo(seekPosition);
+        
+        // Wait a bit longer before playing to ensure seek completes
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (_youtubeController != null && mounted) {
+            // Resume playback
+            _youtubeController!.play();
+            
+            // Update current subtitle index manually
+            final subtitles = _videoContent?.subtitles ?? [];
+            int index = subtitles.indexWhere((subtitle) => 
+              milliseconds >= subtitle.startTime && milliseconds <= subtitle.endTime);
+            
+            if (index != -1) {
+              setState(() {
+                _currentSubtitleIndex = index;
+              });
+            }
+          }
+        });
+      }
+    });
+  } catch (e) {
+    print('Error during YouTube seeking: $e');
+    // Show error message to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error navigating to timestamp: $e')),
+    );
+  }
+}
+
+void _validateAndFixSubtitles() {
+  if (_videoContent == null || _videoContent!.subtitles.isEmpty) return;
+  
+  final subtitles = _videoContent!.subtitles;
+  bool hasChanges = false;
+  final List<Subtitle> fixedSubtitles = [];
+  
+  // Check for any timing issues
+  for (int i = 0; i < subtitles.length; i++) {
+    var subtitle = subtitles[i];
+    
+    // Ensure start time is less than end time
+    if (subtitle.startTime >= subtitle.endTime) {
+      // Fix by adding 3 seconds if end time is not valid
+      final newEndTime = subtitle.startTime + 3000;
+      subtitle = Subtitle(
+        startTime: subtitle.startTime,
+        endTime: newEndTime,
+        text: subtitle.text,
+      );
+      hasChanges = true;
+    }
+    
+    // Ensure subtitles don't overlap
+    if (i > 0) {
+      final prevSubtitle = fixedSubtitles[i - 1];
+      if (subtitle.startTime < prevSubtitle.endTime) {
+        // Adjust start time to prevent overlap
+        subtitle = Subtitle(
+          startTime: prevSubtitle.endTime + 10, // 10ms gap
+          endTime: subtitle.endTime,
+          text: subtitle.text,
+        );
+        hasChanges = true;
+      }
+    }
+    
+    fixedSubtitles.add(subtitle);
+  }
+  
+  // If changes were made, update the video content
+  if (hasChanges) {
+    print('Fixed timing issues in ${fixedSubtitles.length} subtitles');
+    
+    final updatedVideoContent = _videoContent!.copyWith(
+      subtitles: fixedSubtitles,
+    );
+    
+    // Save the fixed subtitles
+    _storageService.saveVideo(updatedVideoContent);
+    
+    setState(() {
+      _videoContent = updatedVideoContent;
+    });
   }
 }
 Widget _buildSubtitlesSection() {
@@ -520,15 +652,26 @@ Widget _buildSubtitlesSection() {
                 final isCurrentSubtitle = index == _currentSubtitleIndex;
                 
                 return InkWell(
-                  onTap: () {
-                    if (!_isYoutubeVideo && _controller != null) {
-                      _controller!.seekTo(Duration(milliseconds: subtitle.startTime));
-                      _controller!.play();
-                    } else if (_youtubeController != null) {
-                      _youtubeController!.seekTo(Duration(milliseconds: subtitle.startTime));
-                      _youtubeController!.play();
-                    }
-                  },
+                onTap: () {
+    final startTimeMs = subtitle.startTime;
+    
+    print('Tapped timestamp: ${_formatTimestampCNN(startTimeMs)} (${startTimeMs}ms)');
+    
+    if (!_isYoutubeVideo && _controller != null) {
+      // For regular video player
+      _controller!.pause();
+      _controller!.seekTo(Duration(milliseconds: startTimeMs));
+      
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_controller != null && mounted) {
+          _controller!.play();
+        }
+      });
+    } else {
+      // Use the specialized YouTube seeking method
+      _seekYouTubeToTime(startTimeMs);
+    }
+  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     color: isCurrentSubtitle 
@@ -842,26 +985,67 @@ Widget _buildVideoPlayer() {
   );
 }
   
-  Widget _buildYoutubePlayer() {
-    if (!_isInitialized || _youtubeController == null) {
-      return const Center(
-        child: Text('Error initializing YouTube player'),
-      );
-    }
-    
-    return YoutubePlayer(
-      controller: _youtubeController!,
-      showVideoProgressIndicator: true,
-      progressIndicatorColor: Colors.red,
-      progressColors: const ProgressBarColors(
-        playedColor: Colors.red,
-        handleColor: Colors.redAccent,
-      ),
-      onReady: () {
-        _isInitialized = true;
-      },
+Widget _buildYoutubePlayer() {
+  if (!_isInitialized || _youtubeController == null) {
+    return const Center(
+      child: Text('Error initializing YouTube player'),
     );
   }
+  
+  return YoutubePlayer(
+    controller: _youtubeController!,
+    showVideoProgressIndicator: true,
+    progressIndicatorColor: Colors.red,
+    progressColors: const ProgressBarColors(
+      playedColor: Colors.red,
+      handleColor: Colors.redAccent,
+    ),
+    onReady: () {
+      print('YouTube player is now ready');
+      setState(() {
+        _isYoutubePlayerReady = true;
+        
+        // Start playing after player is ready
+        _youtubeController?.play();
+      });
+      
+      // Set up position listener after player is ready
+      _setupYouTubeListener();
+    },
+    onEnded: (YoutubeMetaData metaData) {
+      // Handle video end if needed
+    },
+    // Add these to improve UI and interaction
+    topActions: [
+      const SizedBox(width: 8.0),
+      Expanded(
+        child: Text(
+          _youtubeController!.metadata.title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18.0,
+          ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+        ),
+      ),
+    ],
+    bottomActions: [
+      CurrentPosition(),
+      const SizedBox(width: 10.0),
+      ProgressBar(
+        isExpanded: true,
+        colors: const ProgressBarColors(
+          playedColor: Colors.red,
+          handleColor: Colors.redAccent,
+        ),
+      ),
+      const SizedBox(width: 10.0),
+      RemainingDuration(),
+      FullScreenButton(),
+    ],
+  );
+}
   
   Widget _buildVideoControls() {
     return Container(
