@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
 
 void main() async {
@@ -11,7 +13,12 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   
-  runApp(const CaptionLearnApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const CaptionLearnApp(),
+    ),
+  );
 }
 
 class CaptionLearnApp extends StatelessWidget {
@@ -19,6 +26,8 @@ class CaptionLearnApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return MaterialApp(
       title: 'Caption Learn',
       debugShowCheckedModeBanner: false, // Remove debug banner
@@ -41,7 +50,7 @@ class CaptionLearnApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      themeMode: ThemeMode.system,
+      themeMode: themeProvider.themeMode,
       home: const HomeScreen(),
     );
   }
