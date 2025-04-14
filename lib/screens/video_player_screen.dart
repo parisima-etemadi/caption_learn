@@ -552,7 +552,7 @@ Widget _buildVideoPlayer() {
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(16),
             topRight: Radius.circular(16),
@@ -579,19 +579,19 @@ Widget _buildVideoPlayer() {
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   Row(
                     children: [
                       IconButton(
-                        icon: Icon(Icons.more_vert),
+                        icon: Icon(Icons.more_vert, color: Theme.of(context).colorScheme.onSurface),
                         onPressed: () {
                           // Options menu
                         },
                       ),
                       IconButton(
-                        icon: Icon(Icons.close),
+                        icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
                         onPressed: () {
                           // This would typically toggle transcript view
                           // For now we'll just keep it visible
@@ -604,7 +604,7 @@ Widget _buildVideoPlayer() {
             ),
             
             // Divider
-            Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.2)),
+            Divider(height: 1, thickness: 1, color: Theme.of(context).dividerColor),
             
             // Scripts list with timestamps
             Expanded(
@@ -628,7 +628,7 @@ Widget _buildVideoPlayer() {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       color: isCurrentSubtitle 
-                          ? Colors.blue.withOpacity(0.1)
+                          ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
                           : Colors.transparent,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -639,7 +639,7 @@ Widget _buildVideoPlayer() {
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             margin: const EdgeInsets.only(right: 12, top: 2),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.15),
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Center(
@@ -648,7 +648,7 @@ Widget _buildVideoPlayer() {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.blue[700],
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                             ),
@@ -677,7 +677,7 @@ Widget _buildVideoPlayer() {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: Colors.grey.withOpacity(0.2), width: 1),
+                  top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
                 ),
               ),
               child: Text(
@@ -685,7 +685,7 @@ Widget _buildVideoPlayer() {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: Colors.black,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ),
@@ -708,7 +708,7 @@ Widget _buildVideoPlayer() {
             word,
             style: TextStyle(
               fontSize: 16,
-              color: Colors.black,
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
             ),
           );
@@ -721,7 +721,7 @@ Widget _buildVideoPlayer() {
             word,
             style: TextStyle(
               fontSize: 16,
-              color: Colors.black,
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: isHighlighted ? FontWeight.bold : FontWeight.normal,
             ),
           ),
