@@ -76,4 +76,24 @@ class VideoContent {
       'dateAdded': dateAdded.toIso8601String(),
     };
   }
+  
+  copyWith({
+    String? id,
+    String? title,
+    String? sourceUrl,
+    VideoSource? source,
+    String? localPath,
+    List<Subtitle>? subtitles,
+    DateTime? dateAdded,
+  }) {
+    return VideoContent(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      sourceUrl: sourceUrl ?? this.sourceUrl,
+      source: source ?? this.source,
+      localPath: localPath ?? this.localPath,
+      subtitles: subtitles ?? this.subtitles,
+      dateAdded: dateAdded ?? this.dateAdded,
+    );
+  }
 } 

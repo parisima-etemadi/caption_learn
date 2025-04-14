@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'package:caption_learn/services/youtube_service.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -33,21 +35,51 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isYoutubeVideo = false;
   final TextEditingController _definitionController = TextEditingController();
   final TextEditingController _exampleController = TextEditingController();
+  bool _showAddTranscriptButton = false;
+  Timer? _positionTimer;
   
-  @override
-  void initState() {
-    super.initState();
-    _loadVideo();
-  }
-  
+ @override
+void initState() {
+  super.initState();
+  _loadVideo();
+}
   @override
   void dispose() {
     _controller?.dispose();
     _youtubeController?.dispose();
     _definitionController.dispose();
     _exampleController.dispose();
+    _positionTimer?.cancel();
     super.dispose();
   }
+
+void _setupYouTubeListener() {
+  // Only set up listener if this is a YouTube video and controller exists
+  if (_isYoutubeVideo && _youtubeController != null) {
+    // Add a periodic timer to check YouTube player position
+    _positionTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (!mounted || _youtubeController == null) {
+        timer.cancel();
+        return;
+      }
+      
+      if (_youtubeController!.value.isPlaying) {
+        final position = _youtubeController!.value.position.inMilliseconds;
+        final subtitles = _videoContent?.subtitles ?? [];
+        
+        // Find current subtitle based on position
+        int index = subtitles.indexWhere((subtitle) => 
+          position >= subtitle.startTime && position <= subtitle.endTime);
+        
+        if (index != _currentSubtitleIndex) {
+          setState(() {
+            _currentSubtitleIndex = index;
+          });
+        }
+      }
+    });
+  }
+}
   
   Future<void> _loadVideo() async {
     setState(() {
@@ -93,6 +125,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+ 
+
+
 Future<void> _initializeVideoPlayer() async {
   if (_videoContent == null) return;
   
@@ -110,7 +145,7 @@ Future<void> _initializeVideoPlayer() async {
       );
     }
   } else if (_videoContent!.source == VideoSource.youtube) {
-    // YouTube handling remains the same
+    // YouTube handling
     final videoId = YoutubePlayer.convertUrlToId(_videoContent!.sourceUrl);
     if (videoId != null) {
       _youtubeController = YoutubePlayerController(
@@ -123,6 +158,16 @@ Future<void> _initializeVideoPlayer() async {
       setState(() {
         _isInitialized = true;
       });
+      
+      // Give the controller a moment to initialize before setting up listener
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _setupYouTubeListener();
+      });
+      
+      // If we don't have subtitles yet, try to fetch them again
+      if (_videoContent!.subtitles.isEmpty) {
+        _fetchYouTubeSubtitles(videoId);
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid YouTube URL')),
@@ -142,6 +187,416 @@ Future<void> _initializeVideoPlayer() async {
     );
     Navigator.pop(context);
   }
+}
+
+void _showAddTranscriptDialog() {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Add Transcript'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('You can add a transcript by:'),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showPasteTranscriptDialog();
+            },
+            child: const Text('Paste from clipboard'),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Implementation for uploading a subtitle file would go here
+            },
+            child: const Text('Upload SRT file'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+      ],
+    ),
+  );
+}
+
+// Add this method to your _VideoPlayerScreenState class
+void _showPasteTranscriptDialog() {
+  final TextEditingController controller = TextEditingController();
+  
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Paste Transcript'),
+      content: TextField(
+        controller: controller,
+        decoration: const InputDecoration(
+          hintText: 'Paste transcript text here...',
+        ),
+        maxLines: 10,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            if (controller.text.isNotEmpty) {
+              _processManualTranscript(controller.text);
+            }
+            Navigator.pop(context);
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  ).then((_) {
+    controller.dispose(); // Don't forget to dispose the controller
+  });
+}
+Future<void> _fetchYouTubeSubtitles(String videoId) async {
+  try {
+    // Show loading indicator when fetching subtitles
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fetching video subtitles...')),
+      );
+    }
+
+    final subtitles = await YouTubeService.getYouTubeSubtitles(videoId);
+    
+    if (subtitles.isNotEmpty) {
+      // Update video content with new subtitles
+      final updatedVideoContent = _videoContent!.copyWith(subtitles: subtitles);
+      
+      // Save updated content
+      await _storageService.saveVideo(updatedVideoContent);
+      
+      setState(() {
+        _videoContent = updatedVideoContent;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Subtitles loaded successfully!')),
+        );
+      }
+    } else {
+      // Show UI for manually adding transcript
+      setState(() {
+        _showAddTranscriptButton = true;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No subtitles found. You can add them manually.')),
+        );
+      }
+    }
+  } catch (e) {
+    print('Error fetching YouTube subtitles: $e');
+    // Show UI for manually adding transcript
+    setState(() {
+      _showAddTranscriptButton = true;
+    });
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading subtitles: ${e.toString()}')),
+      );
+    }
+  }
+}
+
+void _processManualTranscript(String text) {
+  // This is a simple implementation - in a real app, you'd want a more
+  // sophisticated parser that can handle various formats
+  final lines = text.split('\n');
+  final List<Subtitle> subtitles = [];
+  
+  // Simple algorithm to convert plain text into timed subtitles
+  // This assumes each line is a separate subtitle
+  final videoDuration = _youtubeController?.metadata.duration.inMilliseconds ?? 0;
+  if (videoDuration > 0 && lines.isNotEmpty) {
+    final intervalMs = videoDuration ~/ lines.length;
+    
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isNotEmpty) {
+        subtitles.add(
+          Subtitle(
+            startTime: i * intervalMs,
+            endTime: (i + 1) * intervalMs,
+            text: line,
+          ),
+        );
+      }
+    }
+    
+    // Update and save video content with new subtitles
+    if (subtitles.isNotEmpty && _videoContent != null) {
+      final updatedVideoContent = _videoContent!.copyWith(subtitles: subtitles);
+      _storageService.saveVideo(updatedVideoContent);
+      
+      setState(() {
+        _videoContent = updatedVideoContent;
+        _showAddTranscriptButton = false;
+      });
+    }
+  }
+}
+Widget _buildSubtitlesSection() {
+  if (_videoContent == null) {
+    return const SizedBox.shrink();
+  }
+  
+  if (_videoContent!.subtitles.isEmpty) {
+    // Show empty state with add transcript button
+    return Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Caption header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Transcript',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Divider
+            Divider(height: 1, thickness: 1, color: Theme.of(context).dividerColor),
+            
+            // Empty state content
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.subtitles_off,
+                      size: 64,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No transcript available',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: _showAddTranscriptDialog,
+                      child: const Text('Add Transcript'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Language selector at bottom
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+                ),
+              ),
+              child: Text(
+                'English',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  // When subtitles are available, show the transcript
+  return Expanded(
+    child: Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Caption header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Transcript',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.more_vert, color: Theme.of(context).colorScheme.onSurface),
+                      onPressed: () {
+                        // Options menu
+                      },
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
+                      onPressed: () {
+                        // This would typically toggle transcript view
+                        // For now we'll just keep it visible
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Divider
+          Divider(height: 1, thickness: 1, color: Theme.of(context).dividerColor),
+          
+          // Scripts list with timestamps
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _videoContent!.subtitles.length,
+              itemBuilder: (context, index) {
+                final subtitle = _videoContent!.subtitles[index];
+                final isCurrentSubtitle = index == _currentSubtitleIndex;
+                
+                return InkWell(
+                  onTap: () {
+                    if (!_isYoutubeVideo && _controller != null) {
+                      _controller!.seekTo(Duration(milliseconds: subtitle.startTime));
+                      _controller!.play();
+                    } else if (_youtubeController != null) {
+                      _youtubeController!.seekTo(Duration(milliseconds: subtitle.startTime));
+                      _youtubeController!.play();
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    color: isCurrentSubtitle 
+                        ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                        : Colors.transparent,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Timestamp in blue bubble
+                        Container(
+                          width: 50,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          margin: const EdgeInsets.only(right: 12, top: 2),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _formatTimestampCNN(subtitle.startTime),
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        
+                        // Subtitle text with word selection capability
+                        Expanded(
+                          child: GestureDetector(
+                            onLongPress: () {
+                              _showWordSelectionDialog(subtitle.text);
+                            },
+                            child: _buildTappableText(subtitle.text, isCurrentSubtitle),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          // Language selector at bottom
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+              ),
+            ),
+            child: Text(
+              'English',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
   void _updateCurrentSubtitle() {
@@ -544,156 +999,8 @@ Widget _buildVideoPlayer() {
     );
   }
   
-  Widget _buildSubtitlesSection() {
-    if (_videoContent == null || _videoContent!.subtitles.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Caption header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Transcript',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.more_vert, color: Theme.of(context).colorScheme.onSurface),
-                        onPressed: () {
-                          // Options menu
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onSurface),
-                        onPressed: () {
-                          // This would typically toggle transcript view
-                          // For now we'll just keep it visible
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            
-            // Divider
-            Divider(height: 1, thickness: 1, color: Theme.of(context).dividerColor),
-            
-            // Scripts list with timestamps
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _videoContent!.subtitles.length,
-                itemBuilder: (context, index) {
-                  final subtitle = _videoContent!.subtitles[index];
-                  final isCurrentSubtitle = index == _currentSubtitleIndex;
-                  
-                  return InkWell(
-                    onTap: () {
-                      if (!_isYoutubeVideo && _controller != null) {
-                        _controller!.seekTo(Duration(milliseconds: subtitle.startTime));
-                        _controller!.play();
-                      } else if (_youtubeController != null) {
-                        _youtubeController!.seekTo(Duration(milliseconds: subtitle.startTime));
-                        _youtubeController!.play();
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      color: isCurrentSubtitle 
-                          ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                          : Colors.transparent,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Timestamp in blue bubble
-                          Container(
-                            width: 50,
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            margin: const EdgeInsets.only(right: 12, top: 2),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Center(
-                              child: Text(
-                                _formatTimestampCNN(subtitle.startTime),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                          
-                          // Subtitle text with word selection capability
-                          Expanded(
-                            child: GestureDetector(
-                              onLongPress: () {
-                                _showWordSelectionDialog(subtitle.text);
-                              },
-                              child: _buildTappableText(subtitle.text, isCurrentSubtitle),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            
-            // Language selector at bottom
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
-                ),
-              ),
-              child: Text(
-                'English',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
+  
   
   Widget _buildTappableText(String text, bool isHighlighted) {
     final words = text.split(' ');
