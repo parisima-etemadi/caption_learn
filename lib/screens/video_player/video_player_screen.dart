@@ -1,3 +1,4 @@
+import 'package:caption_learn/widgets/player/custom_bottom_navigation.dart';
 import 'package:flutter/material.dart';
 import '../../controllers/video_player_controller.dart';
 import '../../models/vocabulary_item.dart';
@@ -28,7 +29,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   final TextEditingController _exampleController = TextEditingController();
   bool _showControls = true;
   VocabularyItem? _selectedWord;
-
+  int _activeNavIndex = 2;
   @override
   void initState() {
     super.initState();
@@ -150,6 +151,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 _buildTranscriptSection(),
               ],
             ),
+            bottomNavigationBar: CustomBottomNavigation(
+      currentIndex: _activeNavIndex,
+      onTap: (index) {
+        setState(() {
+          _activeNavIndex = index;
+        });
+      },    
+         ),
     );
   }
   

@@ -106,9 +106,7 @@ class TranscriptSection extends StatelessWidget {
                 ),
               ),
             ),
-            
-            // Language selector at bottom
-            _buildLanguageSelector(context),
+    
           ],
         ),
       ),
@@ -249,32 +247,13 @@ class TranscriptSection extends StatelessWidget {
             ),
             
             // Language selector at bottom
-            _buildLanguageSelector(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildLanguageSelector(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: Theme.of(context).dividerColor, width: 1),
-        ),
-      ),
-      child: Text(
-        'English',
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
-      ),
-    );
-  }
+ 
 
   void _showWordSelectionDialog(BuildContext context, String text) {
     final words = text.split(' ')
