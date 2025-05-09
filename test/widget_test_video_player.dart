@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:caption_learn/models/video_content.dart';
+import 'package:caption_learn/features/video/data/models/video_content.dart';
 import 'package:caption_learn/services/storage_service.dart';
 
 

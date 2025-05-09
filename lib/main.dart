@@ -1,12 +1,12 @@
+// lib/main.dart
+import 'package:caption_learn/features/home/presentation/screens/home_screen.dart';
+import 'package:caption_learn/features/settings/presentation/providers/theme_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/constants/app_constants.dart';
-import 'core/services/shared_prefs_storage_service.dart';
-import 'core/services/storage_repository.dart';
 import 'core/utils/logger.dart';
-import 'features/video_management/screens/home_screen.dart';
-import 'common/providers/theme_provider.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,9 +30,6 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        // Register your repositories here for dependency injection
-        Provider<VideoStorageRepository>(create: (_) => VideoStorage()),
-        Provider<VocabularyStorageRepository>(create: (_) => VocabularyStorage()),
       ],
       child: const CaptionLearnApp(),
     ),
@@ -50,7 +47,7 @@ class CaptionLearnApp extends StatelessWidget {
     
     return MaterialApp(
       title: AppConstants.appName,
-      debugShowCheckedModeBanner: false, // Remove debug banner
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,

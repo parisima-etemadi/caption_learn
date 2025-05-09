@@ -1,0 +1,1 @@
+enum VideoSource { youtube, local }
