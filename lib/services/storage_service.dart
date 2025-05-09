@@ -1,210 +1,128 @@
 import 'dart:convert';
 import 'package:caption_learn/features/video/data/models/video_content.dart';
 import 'package:caption_learn/features/vocabulary/models/vocabulary_item.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/logger.dart';
 
+// Interface for items that can be stored and have an ID.
+abstract class Storable {
+  String get id;
+  Map<String, dynamic> toJson(); // Keep for now, might be used elsewhere
+}
 
 class StorageService {
   static final StorageService _instance = StorageService._internal();
   final Logger _logger = const Logger('StorageService');
-  
+
+  // In-memory stores
+  final List<VideoContent> _videos = [];
+  final List<VocabularyItem> _vocabularyItems = [];
+
   factory StorageService() {
     return _instance;
   }
-  
+
   StorageService._internal();
-  
-  // Videos
-  Future<void> saveVideo(VideoContent video) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> videos = prefs.getStringList(AppConstants.videosStorageKey) ?? [];
-      
-      // Convert video to JSON string
-      final videoJson = jsonEncode(video.toJson());
-      
-      // Check if video already exists (by ID) and update it, or add it as new
-      final index = videos.indexWhere((v) {
-        final Map<String, dynamic> decoded = jsonDecode(v);
-        return decoded['id'] == video.id;
-      });
-      
-      if (index >= 0) {
-        videos[index] = videoJson;
-        _logger.i('Updated video with ID: ${video.id}');
-      } else {
-        videos.add(videoJson);
-        _logger.i('Added new video with ID: ${video.id}');
-      }
-      
-      await prefs.setStringList(AppConstants.videosStorageKey, videos);
-    } catch (e, stackTrace) {
-      _logger.e('Failed to save video', e, stackTrace);
-      rethrow;
+
+  // Generic helper to save an item (add or update)
+  void _saveItem<T extends Storable>(List<T> list, T item, String itemType) {
+    final index = list.indexWhere((existingItem) => existingItem.id == item.id);
+    if (index >= 0) {
+      list[index] = item;
+      _logger.i('Updated $itemType with ID: ${item.id}');
+    } else {
+      list.add(item);
+      _logger.i('Added new $itemType with ID: ${item.id}');
     }
   }
-  
-  Future<List<VideoContent>> getVideos() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> videos = prefs.getStringList(AppConstants.videosStorageKey) ?? [];
-      
-      final List<VideoContent> result = [];
-      
-      for (final videoJson in videos) {
-        try {
-          final Map<String, dynamic> json = jsonDecode(videoJson);
-          result.add(VideoContent.fromJson(json));
-        } catch (e) {
-          _logger.e('Error parsing video', e);
-        }
-      }
-      
-      _logger.d('Retrieved ${result.length} videos');
-      return result;
-    } catch (e, stackTrace) {
-      _logger.e('Failed to get videos', e, stackTrace);
-      rethrow;
-    }
+
+  // Generic helper to get all items
+  List<T> _getItems<T extends Storable>(List<T> list, String itemType) {
+    _logger.d('Retrieved ${list.length} $itemType(s)');
+    return List<T>.from(list); // Return a copy
   }
-  
-  Future<VideoContent?> getVideoById(String id) async {
+
+  // Generic helper to get an item by ID
+  T? _getItemById<T extends Storable>(
+    List<T> list,
+    String id,
+    String itemType,
+  ) {
     try {
-      final videos = await getVideos();
-      final video = videos.firstWhere((v) => v.id == id, orElse: () => throw Exception('Video not found'));
-      _logger.d('Retrieved video with ID: $id');
-      return video;
+      final item = list.firstWhere((existingItem) => existingItem.id == id);
+      _logger.d('Retrieved $itemType with ID: $id');
+      return item;
     } catch (e) {
-      _logger.w('Video with ID $id not found');
+      _logger.w('$itemType with ID $id not found');
       return null;
     }
   }
-  
-  Future<void> deleteVideo(String id) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> videos = prefs.getStringList(AppConstants.videosStorageKey) ?? [];
-      
-      final newList = videos.where((v) {
-        final Map<String, dynamic> decoded = jsonDecode(v);
-        return decoded['id'] != id;
-      }).toList();
-      
-      await prefs.setStringList(AppConstants.videosStorageKey, newList);
-      _logger.i('Deleted video with ID: $id');
-      
-      // Also delete associated vocabulary items
-      await deleteVocabularyByVideoId(id);
-    } catch (e, stackTrace) {
-      _logger.e('Failed to delete video', e, stackTrace);
-      rethrow;
+
+  // Generic helper to delete an item by ID
+  void _deleteItem<T extends Storable>(
+    List<T> list,
+    String id,
+    String itemType,
+  ) {
+    final initialLength = list.length;
+    list.removeWhere((existingItem) => existingItem.id == id);
+    if (list.length < initialLength) {
+      _logger.i('Deleted $itemType with ID: $id');
+    } else {
+      _logger.w('$itemType with ID $id not found for deletion.');
     }
   }
-  
+
+  // Videos
+  void saveVideo(VideoContent video) {
+    // No try-catch needed for in-memory, unless specific logic requires it.
+    _saveItem<VideoContent>(_videos, video, 'video');
+  }
+
+  List<VideoContent> getVideos() {
+    return _getItems<VideoContent>(_videos, 'video');
+  }
+
+  VideoContent? getVideoById(String id) {
+    return _getItemById<VideoContent>(_videos, id, 'video');
+  }
+
+  void deleteVideo(String id) {
+    _deleteItem<VideoContent>(_videos, id, 'video');
+    // Also delete associated vocabulary items
+    deleteVocabularyByVideoId(id);
+  }
+
   // Vocabulary
-  Future<void> saveVocabularyItem(VocabularyItem item) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> vocabulary = prefs.getStringList(AppConstants.vocabularyStorageKey) ?? [];
-      
-      // Convert item to JSON string
-      final itemJson = jsonEncode(item.toJson());
-      
-      // Check if item already exists (by ID) and update it, or add it as new
-      final index = vocabulary.indexWhere((v) {
-        final Map<String, dynamic> decoded = jsonDecode(v);
-        return decoded['id'] == item.id;
-      });
-      
-      if (index >= 0) {
-        vocabulary[index] = itemJson;
-        _logger.i('Updated vocabulary item with ID: ${item.id}');
-      } else {
-        vocabulary.add(itemJson);
-        _logger.i('Added new vocabulary item with ID: ${item.id}');
-      }
-      
-      await prefs.setStringList(AppConstants.vocabularyStorageKey, vocabulary);
-    } catch (e, stackTrace) {
-      _logger.e('Failed to save vocabulary item', e, stackTrace);
-      rethrow;
-    }
+  void saveVocabularyItem(VocabularyItem item) {
+    _saveItem<VocabularyItem>(_vocabularyItems, item, 'vocabulary item');
   }
-  
-  Future<List<VocabularyItem>> getVocabularyItems() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> vocabulary = prefs.getStringList(AppConstants.vocabularyStorageKey) ?? [];
-      
-      final List<VocabularyItem> result = [];
-      
-      for (final itemJson in vocabulary) {
-        try {
-          final Map<String, dynamic> json = jsonDecode(itemJson);
-          result.add(VocabularyItem.fromJson(json));
-        } catch (e) {
-          _logger.e('Error parsing vocabulary item', e);
-        }
-      }
-      
-      _logger.d('Retrieved ${result.length} vocabulary items');
-      return result;
-    } catch (e, stackTrace) {
-      _logger.e('Failed to get vocabulary items', e, stackTrace);
-      rethrow;
-    }
+
+  List<VocabularyItem> getVocabularyItems() {
+    return _getItems<VocabularyItem>(_vocabularyItems, 'vocabulary item');
   }
-  
-  Future<List<VocabularyItem>> getVocabularyByVideoId(String videoId) async {
-    try {
-      final items = await getVocabularyItems();
-      final filteredItems = items.where((item) => item.sourceVideoId == videoId).toList();
-      _logger.d('Retrieved ${filteredItems.length} vocabulary items for video: $videoId');
-      return filteredItems;
-    } catch (e, stackTrace) {
-      _logger.e('Failed to get vocabulary items by video ID', e, stackTrace);
-      rethrow;
-    }
+
+  List<VocabularyItem> getVocabularyByVideoId(String videoId) {
+    final filteredItems =
+        _vocabularyItems
+            .where((item) => item.sourceVideoId == videoId)
+            .toList();
+    _logger.d(
+      'Retrieved ${filteredItems.length} vocabulary items for video: $videoId',
+    );
+    return filteredItems;
   }
-  
-  Future<void> deleteVocabularyItem(String id) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> vocabulary = prefs.getStringList(AppConstants.vocabularyStorageKey) ?? [];
-      
-      final newList = vocabulary.where((v) {
-        final Map<String, dynamic> decoded = jsonDecode(v);
-        return decoded['id'] != id;
-      }).toList();
-      
-      await prefs.setStringList(AppConstants.vocabularyStorageKey, newList);
-      _logger.i('Deleted vocabulary item with ID: $id');
-    } catch (e, stackTrace) {
-      _logger.e('Failed to delete vocabulary item', e, stackTrace);
-      rethrow;
-    }
+
+  void deleteVocabularyItem(String id) {
+    _deleteItem<VocabularyItem>(_vocabularyItems, id, 'vocabulary item');
   }
-  
-  Future<void> deleteVocabularyByVideoId(String videoId) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> vocabulary = prefs.getStringList(AppConstants.vocabularyStorageKey) ?? [];
-      
-      final List<String> originalList = List.from(vocabulary);
-      final newList = vocabulary.where((v) {
-        final Map<String, dynamic> decoded = jsonDecode(v);
-        return decoded['sourceVideoId'] != videoId;
-      }).toList();
-      
-      await prefs.setStringList(AppConstants.vocabularyStorageKey, newList);
-      
-      final int deletedCount = originalList.length - newList.length;
+
+  void deleteVocabularyByVideoId(String videoId) {
+    final initialCount = _vocabularyItems.length;
+    _vocabularyItems.removeWhere((item) => item.sourceVideoId == videoId);
+    final deletedCount = initialCount - _vocabularyItems.length;
+    if (deletedCount > 0) {
       _logger.i('Deleted $deletedCount vocabulary items for video: $videoId');
-    } catch (e, stackTrace) {
-      _logger.e('Failed to delete vocabulary items by video ID', e, stackTrace);
-      rethrow;
     }
   }
 }

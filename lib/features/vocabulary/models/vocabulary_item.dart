@@ -1,12 +1,16 @@
-class VocabularyItem {
+import '../../../services/storage_service.dart';
+
+class VocabularyItem implements Storable {
+  @override
   final String id;
   final String word;
   final String definition;
   final String? example;
-  final String sourceVideoId; // Reference to the video where this word was learned
+  final String
+  sourceVideoId; // Reference to the video where this word was learned
   final DateTime dateAdded;
   final bool isFavorite;
-  
+
   const VocabularyItem({
     required this.id,
     required this.word,
@@ -16,7 +20,7 @@ class VocabularyItem {
     required this.dateAdded,
     this.isFavorite = false,
   });
-  
+
   factory VocabularyItem.fromJson(Map<String, dynamic> json) {
     return VocabularyItem(
       id: json['id'] as String,
@@ -28,7 +32,8 @@ class VocabularyItem {
       isFavorite: json['isFavorite'] as bool? ?? false,
     );
   }
-  
+
+  @override
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -40,7 +45,7 @@ class VocabularyItem {
       'isFavorite': isFavorite,
     };
   }
-  
+
   VocabularyItem copyWith({
     String? id,
     String? word,
@@ -60,11 +65,11 @@ class VocabularyItem {
       isFavorite: isFavorite ?? this.isFavorite,
     );
   }
-  
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    
+
     return other is VocabularyItem &&
         other.id == id &&
         other.word == word &&
@@ -85,10 +90,10 @@ class VocabularyItem {
         dateAdded.hashCode ^
         isFavorite.hashCode;
   }
-  
+
   @override
   String toString() {
     return 'VocabularyItem(id: $id, word: $word, definition: $definition, example: $example, '
         'sourceVideoId: $sourceVideoId, dateAdded: $dateAdded, isFavorite: $isFavorite)';
   }
-} 
+}
