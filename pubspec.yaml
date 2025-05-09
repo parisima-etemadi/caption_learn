@@ -39,19 +39,19 @@ dependencies:
   video_player: ^2.9.5
   
   # For YouTube video playback and extraction
-  youtube_explode_dart: ^2.3.10
+  youtube_explode_dart: ^2.4.0
   
   # YouTube player for Flutter
   youtube_player_flutter: ^9.1.1
   
   # HTTP requests for API calls
-  http: ^1.3.0
+  http: ^1.4.0
   
   # For URL parsing and validation
   url_launcher: ^6.3.1
   
   # State management
-  provider: ^6.1.4
+  provider: ^6.1.5
   
   # Persistent storage
   shared_preferences: ^2.5.3
