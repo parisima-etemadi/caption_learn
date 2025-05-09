@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../video/domain/services/video_service.dart';
+import '../../../../core/utils/youtube_utils.dart';
 
 class AddVideoScreen extends StatefulWidget {
   const AddVideoScreen({super.key});
@@ -15,9 +16,9 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
   final _urlController = TextEditingController();
   final _videoService = VideoService();
   final _logger = Logger('AddVideoScreen');
-  
+
   bool _isProcessing = false;
-  
+
   @override
   void dispose() {
     _urlController.dispose();
@@ -29,21 +30,21 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
+
     setState(() {
       _isProcessing = true;
     });
-    
+
     try {
       final url = _urlController.text.trim();
-      
+
       // Check if URL is a YouTube URL
-      if (!_videoService.isYoutubeUrl(url)) {
+      if (!YoutubeUtils.isYoutubeUrl(url)) {
         throw Exception('Only YouTube URLs are supported');
       }
-      
+
       final videoContent = await _videoService.processVideoUrl(url);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -72,19 +73,17 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add YouTube Video'),
-        centerTitle: true,
-      ),
-      body: _isProcessing 
-          ? _buildLoadingState() 
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: _buildForm(),
-            ),
+      appBar: AppBar(title: const Text('Add YouTube Video'), centerTitle: true),
+      body:
+          _isProcessing
+              ? _buildLoadingState()
+              : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: _buildForm(),
+              ),
     );
   }
-  
+
   Widget _buildForm() {
     return Form(
       key: _formKey,
@@ -99,16 +98,13 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
                 SizedBox(height: 8),
                 Text(
                   'Add YouTube Video',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 24),
               ],
             ),
           ),
-          
+
           // URL input field
           TextFormField(
             controller: _urlController,
@@ -117,25 +113,26 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
               hintText: 'Paste a YouTube video URL',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.link),
-              helperText: 'Example: https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+              helperText:
+                  'Example: https://www.youtube.com/watch?v=dQw4w9WgXcQ',
             ),
             keyboardType: TextInputType.url,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter a URL';
               }
-              
+
               final url = value.toLowerCase();
               if (!url.contains('youtube.com') && !url.contains('youtu.be')) {
                 return 'Only YouTube URLs are supported';
               }
-              
+
               return null;
             },
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Info message
           Container(
             padding: EdgeInsets.all(12),
@@ -157,9 +154,9 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Process button
           ElevatedButton.icon(
             onPressed: _processVideo,
@@ -176,7 +173,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
       ),
     );
   }
-  
+
   Widget _buildLoadingState() {
     return Center(
       child: Column(
@@ -184,10 +181,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
         children: const [
           CircularProgressIndicator(),
           SizedBox(height: 24),
-          Text(
-            'Processing video...',
-            style: TextStyle(fontSize: 18),
-          ),
+          Text('Processing video...', style: TextStyle(fontSize: 18)),
           SizedBox(height: 8),
           Text(
             'This may take a moment while we fetch transcripts',

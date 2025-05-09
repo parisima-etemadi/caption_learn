@@ -41,13 +41,13 @@ class _VocabularyScreenState extends State<VocabularyScreen> {
   }
 
   Future<void> _deleteVocabularyItem(String id) async {
-    await _storageService.deleteVocabularyItem(id);
+  
     _loadVocabulary();
   }
 
   Future<void> _toggleFavorite(VocabularyItem item) async {
     final updatedItem = item.copyWith(isFavorite: !item.isFavorite);
-    await _storageService.saveVocabularyItem(updatedItem);
+    
     _loadVocabulary();
   }
 
