@@ -1,4 +1,6 @@
 // lib/features/home/presentation/screens/home_screen.dart
+import 'package:caption_learn/services/firebase_service.dart' as firebase;
+import 'package:caption_learn/services/storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -18,8 +20,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final Logger _logger = const Logger('HomeScreen');
+  final StorageService _storageService = StorageService();
+  final firebase.FirebaseService _firebaseService = firebase.FirebaseService();
   
-  // Mock data
   List<VideoContent> _videos = [];
   bool _isLoading = true;
 
@@ -37,15 +40,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      // Mock behavior - no actual storage
-      await Future.delayed(const Duration(milliseconds: 500)); // Simulate network delay
-      
-      // Use mock data - currently empty list since nothing is saved
-      final mockVideos = <VideoContent>[];
+      // Get videos from StorageService (which manages both local and remote storage)
+      final videos = _storageService.getVideos();
       
       if (mounted) {
         setState(() {
-          _videos = mockVideos;
+          _videos = videos;
           _isLoading = false;
         });
       }
@@ -99,14 +99,11 @@ class _HomeScreenState extends State<HomeScreen> {
       });
 
       try {
-        // Mock deletion behavior
-        await Future.delayed(const Duration(milliseconds: 300)); // Simulate operation
+        // Delete video using StorageService
+        await _storageService.deleteVideo(id);
         
-        // Update the UI by filtering out the deleted video
-        setState(() {
-          _videos = _videos.where((video) => video.id != id).toList();
-          _isLoading = false;
-        });
+        // Reload videos
+        await _loadVideos();
         
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -121,6 +118,36 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _signOut() async {
+    final confirmSignOut = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmSignOut == true) {
+      try {
+        await _firebaseService.signOut();
+        // Navigation is handled by the StreamBuilder in main.dart
+      } catch (e) {
+        _logger.e('Error signing out', e);
+        _showErrorSnackbar('Error signing out');
       }
     }
   }
@@ -141,6 +168,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.settings),
             onPressed: _navigateToSettings,
             tooltip: 'Settings',
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _signOut,
+            tooltip: 'Sign Out',
           ),
         ],
       ),
@@ -179,7 +211,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result == true) {
       // When coming back from add screen, refresh the videos
-      // For now, just reload the empty list
       _loadVideos();
     }
   }

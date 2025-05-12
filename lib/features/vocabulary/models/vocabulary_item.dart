@@ -1,14 +1,30 @@
+import 'package:hive/hive.dart';
 import '../../../services/storage_service.dart';
 
+part 'vocabulary_item.g.dart';
+
+@HiveType(typeId: 3)
 class VocabularyItem implements Storable {
+  @HiveField(0)
   @override
   final String id;
+  
+  @HiveField(1)
   final String word;
+  
+  @HiveField(2)
   final String definition;
+  
+  @HiveField(3)
   final String? example;
-  final String
-  sourceVideoId; // Reference to the video where this word was learned
+  
+  @HiveField(4)
+  final String sourceVideoId; // Reference to the video where this word was learned
+  
+  @HiveField(5)
   final DateTime dateAdded;
+  
+  @HiveField(6)
   final bool isFavorite;
 
   const VocabularyItem({

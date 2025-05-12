@@ -1,4 +1,5 @@
 // lib/features/video/presentation/screens/add_video_screen.dart
+import 'package:caption_learn/services/storage_service.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../video/domain/services/video_service.dart';
@@ -15,6 +16,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
   final _formKey = GlobalKey<FormState>();
   final _urlController = TextEditingController();
   final _videoService = VideoService();
+  final _storageService = StorageService();
   final _logger = Logger('AddVideoScreen');
 
   bool _isProcessing = false;
@@ -43,7 +45,11 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
         throw Exception('Only YouTube URLs are supported');
       }
 
+      // Process the video URL to get details and subtitles
       final videoContent = await _videoService.processVideoUrl(url);
+      
+      // Save the video using StorageService which handles both Firebase and Hive
+      await _storageService.saveVideo(videoContent);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

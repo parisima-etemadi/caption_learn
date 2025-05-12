@@ -1,9 +1,18 @@
 import 'package:caption_learn/features/video/domain/enum/video_source.dart';
+import 'package:hive/hive.dart';
 import '../../../../services/storage_service.dart';
 
+part 'video_content.g.dart';
+
+@HiveType(typeId: 1)
 class Subtitle {
+  @HiveField(0)
   final int startTime; // in milliseconds
+  
+  @HiveField(1)
   final int endTime; // in milliseconds
+  
+  @HiveField(2)
   final String text;
 
   const Subtitle({
@@ -33,14 +42,28 @@ class Subtitle {
   }
 }
 
+@HiveType(typeId: 0)
 class VideoContent implements Storable {
+  @HiveField(0)
   @override
   final String id;
+  
+  @HiveField(1)
   final String title;
+  
+  @HiveField(2)
   final String sourceUrl;
+  
+  @HiveField(3)
   final VideoSource source;
+  
+  @HiveField(4)
   final String? localPath;
+  
+  @HiveField(5)
   final List<Subtitle> subtitles;
+  
+  @HiveField(6)
   final DateTime dateAdded;
 
   const VideoContent({
