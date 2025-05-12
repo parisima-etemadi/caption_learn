@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1028174393649",
+    "project_id": "caption-learn-2f9e3",
+    "storage_bucket": "caption-learn-2f9e3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1028174393649:android:1f20f9bf826e50ff038010",
+        "android_client_info": {
+          "package_name": "com.example.caption_learn"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3G8ddhhUXUWK4EYtVmG16vHTKdJ8YjX8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

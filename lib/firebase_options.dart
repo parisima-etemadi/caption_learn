@@ -15,8 +15,6 @@ class DefaultFirebaseOptions {
         return android;
       case TargetPlatform.iOS:
         return ios;
-      case TargetPlatform.macOS:
-        return macos;
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -24,41 +22,34 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // Replace these with your actual Firebase configuration values
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_API_KEY',
-    appId: 'YOUR_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    authDomain: 'YOUR_AUTH_DOMAIN',
-    storageBucket: 'YOUR_STORAGE_BUCKET',
+    apiKey: 'AIzaSyATrMzePswg9NCFZvsenn-P_Cp-dd3dVQs',
+    appId: '1:1028174393649:web:94c0ef5d5bb18cef038010',
+    messagingSenderId: '1028174393649',
+    projectId: 'caption-learn-2f9e3',
+    authDomain: 'caption-learn-2f9e3.firebaseapp.com',
+    storageBucket: 'caption-learn-2f9e3.firebasestorage.app',
+    measurementId: 'G-J7C3PCJ50R',
   );
 
+  // Replace these with your actual Firebase configuration values
+
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_API_KEY',
-    appId: 'YOUR_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_STORAGE_BUCKET',
+    apiKey: 'AIzaSyA3G8ddhhUXUWK4EYtVmG16vHTKdJ8YjX8',
+    appId: '1:1028174393649:android:1f20f9bf826e50ff038010',
+    messagingSenderId: '1028174393649',
+    projectId: 'caption-learn-2f9e3',
+    storageBucket: 'caption-learn-2f9e3.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR_API_KEY',
-    appId: 'YOUR_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_STORAGE_BUCKET',
-    iosClientId: 'YOUR_IOS_CLIENT_ID',
-    iosBundleId: 'YOUR_IOS_BUNDLE_ID',
+    apiKey: 'AIzaSyB-XnQ0dp3seMIavxc376o7MW6rDUsnm8E',
+    appId: '1:1028174393649:ios:24bf30ae7ddaf73b038010',
+    messagingSenderId: '1028174393649',
+    projectId: 'caption-learn-2f9e3',
+    storageBucket: 'caption-learn-2f9e3.firebasestorage.app',
+    iosBundleId: 'com.example.captionLearn',
   );
 
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'YOUR_API_KEY',
-    appId: 'YOUR_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_STORAGE_BUCKET',
-    iosBundleId: 'YOUR_IOS_BUNDLE_ID',
-    iosClientId: 'YOUR_IOS_CLIENT_ID',
-  );
+
 }

@@ -1,7 +1,7 @@
-// lib/features/home/presentation/screens/home_screen.dart
-import 'package:caption_learn/services/firebase_service.dart' as firebase;
+import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:caption_learn/services/storage_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/utils/logger.dart';
@@ -21,7 +21,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final Logger _logger = const Logger('HomeScreen');
   final StorageService _storageService = StorageService();
-  final firebase.FirebaseService _firebaseService = firebase.FirebaseService();
   
   List<VideoContent> _videos = [];
   bool _isLoading = true;
@@ -122,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _signOut() async {
+  Future<void> _signOut(BuildContext context) async {
     final confirmSignOut = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -142,13 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (confirmSignOut == true) {
-      try {
-        await _firebaseService.signOut();
-        // Navigation is handled by the StreamBuilder in main.dart
-      } catch (e) {
-        _logger.e('Error signing out', e);
-        _showErrorSnackbar('Error signing out');
-      }
+      context.read<AuthBloc>().add(SignOutRequested());
     }
   }
 
@@ -171,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: _signOut,
+            onPressed: () => _signOut(context),
             tooltip: 'Sign Out',
           ),
         ],

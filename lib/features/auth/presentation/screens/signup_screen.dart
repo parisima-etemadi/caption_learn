@@ -1,27 +1,28 @@
 import 'package:caption_learn/core/constants/app_constants.dart';
 import 'package:caption_learn/core/widgets/social_icon_button.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:caption_learn/features/auth/presentation/screens/signup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({Key? key}) : super(key: key);
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  _SignupScreenState createState() => _SignupScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -31,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     context.read<AuthBloc>().add(
-          SignInWithEmailPasswordRequested(
+          SignUpWithEmailPasswordRequested(
             email: _emailController.text.trim(),
             password: _passwordController.text.trim(),
           ),
@@ -39,26 +40,40 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _signInWithGoogle(BuildContext context) {
-  //  context.read<AuthBloc>().add(SignInWithGoogleRequested());
+    context.read<AuthBloc>().add(SignInWithGoogleRequested());
   }
 
   void _signInWithApple(BuildContext context) {
-   // context.read<AuthBloc>().add(SignInWithAppleRequested());
+    context.read<AuthBloc>().add(SignInWithAppleRequested());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create Account'),
+        centerTitle: true,
+        elevation: 0,
+      ),
       body: SafeArea(
         child: BlocConsumer<AuthBloc, AuthState>(
           listener: (context, state) {
-            if (state is AuthenticationFailure) {
+            if (state is RegistrationFailure) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),
                   backgroundColor: Colors.red,
                 ),
               );
+            } else if (state is RegistrationSuccess) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Account created successfully!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              // Return to login screen
+              Navigator.pop(context);
             }
           },
           builder: (context, state) {
@@ -81,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Welcome Back',
+                      'Create an Account',
                       style: TextStyle(fontSize: 18, color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
@@ -89,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     _buildForm(context, state),
                     const SizedBox(height: 16),
                     const Text(
-                      'Or sign in with',
+                      'Or sign up with',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey),
                     ),
@@ -98,14 +113,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
                     TextButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SignupScreen(),
-                          ),
-                        );
+                        Navigator.pop(context);
                       },
-                      child: const Text('Don\'t have an account? Register'),
+                      child: const Text('Already have an account? Login'),
                     ),
                   ],
                 ),
@@ -154,11 +164,35 @@ class _LoginScreenState extends State<LoginScreen> {
               labelText: 'Password',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.lock),
+              helperText: 'Password must be at least 6 characters',
             ),
             enabled: !isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter your password';
+              }
+              if (value.length < 6) {
+                return 'Password must be at least 6 characters';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _confirmPasswordController,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Confirm Password',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.lock_outline),
+            ),
+            enabled: !isLoading,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please confirm your password';
+              }
+              if (value != _passwordController.text) {
+                return 'Passwords do not match';
               }
               return null;
             },
@@ -178,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Login'),
+                : const Text('Create Account'),
           ),
         ],
       ),
