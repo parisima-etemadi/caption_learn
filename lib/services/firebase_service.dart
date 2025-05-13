@@ -45,49 +45,6 @@ class FirebaseService {
     }
   }
 
-  // AUTHENTICATION METHODS
-  
-  // Sign in with email and password
-  Future<User?> signInWithEmailAndPassword(String email, String password) async {
-    try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      _logger.i('User signed in: ${userCredential.user?.uid}');
-      return userCredential.user;
-    } catch (e) {
-      _logger.e('Sign in failed', e);
-      rethrow;
-    }
-  }
-
-  // Create user with email and password
-  Future<User?> createUserWithEmailAndPassword(String email, String password) async {
-    try {
-      final userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      _logger.i('User created: ${userCredential.user?.uid}');
-      return userCredential.user;
-    } catch (e) {
-      _logger.e('User creation failed', e);
-      rethrow;
-    }
-  }
-
-  // Sign out
-  Future<void> signOut() async {
-    try {
-      await _auth.signOut();
-      _logger.i('User signed out');
-    } catch (e) {
-      _logger.e('Sign out failed', e);
-      rethrow;
-    }
-  }
-
   // VIDEOS METHODS
 
   // Save video to Firestore
