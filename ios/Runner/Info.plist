@@ -55,5 +55,9 @@
 	<string>This app needs access to your microphone when recording videos</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app needs access to local network for debugging purposes</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartVmService._tcp</string>
+	</array>
 </dict>
 </plist>

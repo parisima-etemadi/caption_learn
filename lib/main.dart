@@ -17,7 +17,7 @@ void main() async {
   
   // Initialize Firebase
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+    options: DefaultFirebaseOptions.currentPlatform
   );
   
   // Configure logger
