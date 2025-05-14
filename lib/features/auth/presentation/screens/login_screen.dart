@@ -7,7 +7,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -17,12 +16,13 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -34,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     context.read<AuthBloc>().add(
           SignInWithEmailPasswordRequested(
-            email: _emailController.text.trim(),
+            email: _usernameController.text.trim(),
             password: _passwordController.text.trim(),
           ),
         );
@@ -60,63 +60,109 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _signInWithApple(BuildContext context) {
-   // context.read<AuthBloc>().add(SignInWithAppleRequested());
+    // context.read<AuthBloc>().add(SignInWithAppleRequested());
+  }
+
+  void _signInWithFacebook(BuildContext context) {
+    // Implement Facebook login
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sign In'),
-      ),
-      body: BlocConsumer<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthenticationFailure) {
-            // Show error message
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFF8F9FA),
+              Color(0xFFE8EAF6),
+            ],
+          ),
+        ),
+        child: BlocConsumer<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (state is AuthenticationFailure) {
+              // Show error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(state.message)),
+              );
+            }
+          },
+          builder: (context, state) {
+            // Show error widget for network errors
+            if (state is AuthenticationFailure && 
+                (state.message.contains('network') || 
+                 state.message.contains('connection') ||
+                 state.message.contains('internet'))) {
+              return NetworkErrorWidget(
+                message: state.message,
+                onRetry: () => _signInWithGoogle(context),
+              );
+            }
+            
+            return SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 40),
+                          _buildHeader(),
+                          const SizedBox(height: 50),
+                          _buildLoginForm(context, state),
+                          const SizedBox(height: 16),
+                          _buildForgotPassword(),
+                          const SizedBox(height: 24),
+                          _buildSignInButton(context, state),
+                          const SizedBox(height: 24),
+                          _buildSocialLoginDivider(),
+                          const SizedBox(height: 24),
+                          _buildSocialLoginButtons(context, state),
+                          const SizedBox(height: 24),
+                          _buildSignUpOption(context),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             );
-          }
-        },
-        builder: (context, state) {
-          // Show error widget for network errors
-          if (state is AuthenticationFailure && 
-              (state.message.contains('network') || 
-               state.message.contains('connection') ||
-               state.message.contains('internet'))) {
-            return NetworkErrorWidget(
-              message: state.message,
-              onRetry: () => _signInWithGoogle(context),
-            );
-          }
-          
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 32),
-                _buildLogo(),
-                const SizedBox(height: 32),
-                _buildLoginForm(context, state),
-                const SizedBox(height: 16),
-                _buildForgotPassword(),
-                const SizedBox(height: 24),
-                _buildSocialLoginDivider(),
-                const SizedBox(height: 24),
-                _buildSocialLoginButtons(context, state),
-                const SizedBox(height: 24),
-                _buildSignUpOption(context),
-              ],
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildLogo() {
-    return const Icon(Icons.closed_caption, size: 80, color: Colors.blue);
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        const Text(
+          'Hello Again!',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF333333),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Wellcome back you\'ve been missed!',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 16,
+            color: Color(0xFF666666),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildLoginForm(BuildContext context, AuthState state) {
@@ -128,22 +174,33 @@ class _LoginScreenState extends State<LoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextFormField(
-            controller: _emailController,
+            controller: _usernameController,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.email),
+            decoration: InputDecoration(
+              hintText: 'Enter username',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 20,
+              ),
             ),
             enabled: !isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter your email';
-              }
-              if (!RegExp(
-                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-              ).hasMatch(value)) {
-                return 'Please enter a valid email';
+                return 'Please enter your username';
               }
               return null;
             },
@@ -151,11 +208,38 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _passwordController,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Password',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.lock),
+            obscureText: _obscurePassword,
+            decoration: InputDecoration(
+              hintText: 'Password',
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 20,
+              ),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  color: Colors.grey,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
+              ),
             ),
             enabled: !isLoading,
             validator: (value) {
@@ -165,42 +249,88 @@ class _LoginScreenState extends State<LoginScreen> {
               return null;
             },
           ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: isLoading ? null : () => _submitForm(context),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: isLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Login'),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildForgotPassword() {
-    return TextButton(
-      onPressed: () {
-        // Implement forgot password functionality
-      },
-      child: const Text('Forgot Password?'),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton(
+        onPressed: () {
+          // Implement forgot password functionality
+        },
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.grey.shade700,
+          padding: EdgeInsets.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: const Text('Recovery Password'),
+      ),
+    );
+  }
+
+  Widget _buildSignInButton(BuildContext context, AuthState state) {
+    final isLoading = state is Authenticating;
+    
+    return ElevatedButton(
+      onPressed: isLoading ? null : () => _submitForm(context),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFE57373),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        elevation: 0,
+        minimumSize: const Size(double.infinity, 56),
+      ),
+      child: isLoading
+          ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : const Text(
+              'Sign In',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
     );
   }
 
   Widget _buildSocialLoginDivider() {
-    return const Divider(
-      height: 1,
-      thickness: 1,
-      color: Colors.grey,
+    return Row(
+      children: [
+        Expanded(
+          child: Divider(
+            color: Colors.grey.shade400,
+            thickness: 1,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'Or continue with',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Divider(
+            color: Colors.grey.shade400,
+            thickness: 1,
+          ),
+        ),
+      ],
     );
   }
 
@@ -215,27 +345,49 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: () => _signInWithGoogle(context),
           isLoading: isLoading,
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 24),
         // Apple Sign-In Button
-        SocialIconButton.apple(
+       SocialIconButton.apple(
           onPressed: () => _signInWithApple(context),
           isLoading: isLoading,
         ),
+        const SizedBox(width: 24),
+       
       ],
     );
   }
 
+ 
   Widget _buildSignUpOption(BuildContext context) {
-    return TextButton(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const SignupScreen(),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'Not a member?',
+          style: TextStyle(
+            color: Colors.grey.shade600,
           ),
-        );
-      },
-      child: const Text('Don\'t have an account? Register'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SignupScreen(),
+              ),
+            );
+          },
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.blue,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: const Text(
+            'Register now',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
     );
   }
 }
