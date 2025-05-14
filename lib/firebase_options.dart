@@ -48,8 +48,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1028174393649',
     projectId: 'caption-learn-2f9e3',
     storageBucket: 'caption-learn-2f9e3.firebasestorage.app',
+    iosClientId: '1028174393649-3cu65svme7gqnjb847fkeid9te7jrlgv.apps.googleusercontent.com',
     iosBundleId: 'com.example.captionLearn',
   );
-
 
 }

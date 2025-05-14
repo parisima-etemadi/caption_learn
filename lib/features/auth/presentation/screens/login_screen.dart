@@ -1,7 +1,9 @@
 import 'package:caption_learn/core/constants/app_constants.dart';
+import 'package:caption_learn/core/widgets/network_error_widget.dart';
 import 'package:caption_learn/core/widgets/social_icon_button.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:caption_learn/features/auth/presentation/screens/signup_screen.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -38,8 +40,23 @@ class _LoginScreenState extends State<LoginScreen> {
         );
   }
 
-  void _signInWithGoogle(BuildContext context) {
-  //  context.read<AuthBloc>().add(SignInWithGoogleRequested());
+  void _signInWithGoogle(BuildContext context) async {
+    // Check connectivity first
+    final connectivityResult = await Connectivity().checkConnectivity();
+    final isConnected = connectivityResult.isNotEmpty && connectivityResult.first != ConnectivityResult.none;
+    
+    if (!isConnected) {
+      // Show a snackbar if there's no connection
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No internet connection. Please check your network settings and try again.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    
+    context.read<AuthBloc>().add(SignInWithGoogleRequested());
   }
 
   void _signInWithApple(BuildContext context) {
@@ -49,75 +66,60 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: BlocConsumer<AuthBloc, AuthState>(
-          listener: (context, state) {
-            if (state is AuthenticationFailure) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          },
-          builder: (context, state) {
-            return Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Icon(Icons.closed_caption, size: 80, color: Colors.blue),
-                    const SizedBox(height: 16),
-                    Text(
-                      AppConstants.appName,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Welcome Back',
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 32),
-                    _buildForm(context, state),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Or sign in with',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSocialLoginButtons(context, state),
-                    const SizedBox(height: 24),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SignupScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text('Don\'t have an account? Register'),
-                    ),
-                  ],
-                ),
-              ),
+      appBar: AppBar(
+        title: const Text('Sign In'),
+      ),
+      body: BlocConsumer<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthenticationFailure) {
+            // Show error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message)),
             );
-          },
-        ),
+          }
+        },
+        builder: (context, state) {
+          // Show error widget for network errors
+          if (state is AuthenticationFailure && 
+              (state.message.contains('network') || 
+               state.message.contains('connection') ||
+               state.message.contains('internet'))) {
+            return NetworkErrorWidget(
+              message: state.message,
+              onRetry: () => _signInWithGoogle(context),
+            );
+          }
+          
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 32),
+                _buildLogo(),
+                const SizedBox(height: 32),
+                _buildLoginForm(context, state),
+                const SizedBox(height: 16),
+                _buildForgotPassword(),
+                const SizedBox(height: 24),
+                _buildSocialLoginDivider(),
+                const SizedBox(height: 24),
+                _buildSocialLoginButtons(context, state),
+                const SizedBox(height: 24),
+                _buildSignUpOption(context),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildForm(BuildContext context, AuthState state) {
+  Widget _buildLogo() {
+    return const Icon(Icons.closed_caption, size: 80, color: Colors.blue);
+  }
+
+  Widget _buildLoginForm(BuildContext context, AuthState state) {
     final isLoading = state is Authenticating;
     
     return Form(
@@ -185,6 +187,23 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Widget _buildForgotPassword() {
+    return TextButton(
+      onPressed: () {
+        // Implement forgot password functionality
+      },
+      child: const Text('Forgot Password?'),
+    );
+  }
+
+  Widget _buildSocialLoginDivider() {
+    return const Divider(
+      height: 1,
+      thickness: 1,
+      color: Colors.grey,
+    );
+  }
+
   Widget _buildSocialLoginButtons(BuildContext context, AuthState state) {
     final isLoading = state is Authenticating;
     
@@ -203,6 +222,20 @@ class _LoginScreenState extends State<LoginScreen> {
           isLoading: isLoading,
         ),
       ],
+    );
+  }
+
+  Widget _buildSignUpOption(BuildContext context) {
+    return TextButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const SignupScreen(),
+          ),
+        );
+      },
+      child: const Text('Don\'t have an account? Register'),
     );
   }
 }

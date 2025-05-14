@@ -5,7 +5,7 @@ import '../core/utils/logger.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(clientId: '1028174393649-3cu65svme7gqnjb847fkeid9te7jrlgv.apps.googleusercontent.com');
   final Logger _logger = const Logger('AuthService');
   
   // Get current user

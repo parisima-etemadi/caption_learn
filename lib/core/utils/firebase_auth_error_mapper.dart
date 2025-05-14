@@ -8,6 +8,21 @@ class FirebaseAuthErrorMapper {
       return _mapFirebaseAuthExceptionToMessage(error);
     }
     
+    // Handle other types of errors
+    final errorString = error.toString().toLowerCase();
+    
+    if (errorString.contains('network') || errorString.contains('connection')) {
+      return 'Network error. Please check your internet connection and try again.';
+    }
+    
+    if (errorString.contains('safari')) {
+      return 'Browser error. Please try again or use a different sign-in method.';
+    }
+    
+    if (errorString.contains('google') || errorString.contains('sign in')) {
+      return 'Google Sign-In error. Please try again later or use a different sign-in method.';
+    }
+    
     return 'Authentication failed. Please try again.';
   }
   static String _mapFirebaseAuthExceptionToMessage(FirebaseAuthException exception) {
@@ -37,16 +52,18 @@ class FirebaseAuthErrorMapper {
       'provider-already-linked': 'This provider is already linked to your account.',
       
       // Network and rate limiting errors
-      'network-request-failed': 'A network error occurred. Please check your connection.',
+      'network-request-failed': 'Network error. Please check your internet connection and try again.',
       'too-many-requests': 'Too many unsuccessful login attempts. Please try again later.',
       
       // Social sign-in specific errors
       'popup-blocked': 'The authentication popup was blocked by your browser.',
       'popup-closed-by-user': 'The authentication popup was closed before completing the sign-in.',
+      'web-context-canceled': 'The authentication process was cancelled.',
+      'web-storage-unsupported': 'Web storage is not supported or is disabled.',
+      'unauthorized-domain': 'This domain is not authorized for OAuth operations.'
     };
     
-    // Return the mapped message or a default message with the exception message if available
     return errorMessages[exception.code] ?? 
-      'Authentication failed: ${exception.message ?? "Unknown error"}';
+        (exception.message ?? 'Authentication failed. Please try again.');
   }
 }
