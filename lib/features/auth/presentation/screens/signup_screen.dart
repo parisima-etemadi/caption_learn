@@ -1,8 +1,11 @@
 import 'package:caption_learn/core/widgets/social_icon_button.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:caption_learn/features/auth/presentation/widgets/auth_input_field.dart';
+import 'package:caption_learn/features/auth/presentation/widgets/password_strength_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:math';
+
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -13,7 +16,7 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController(); // Changed from email
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
@@ -159,64 +162,26 @@ class _SignupScreenState extends State<SignupScreen> {
         ),
         child: SafeArea(
           child: BlocConsumer<AuthBloc, AuthState>(
-            listener: (context, state) {
-              if (state is RegistrationFailure || state is AuthenticationFailure) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(state is RegistrationFailure 
-                        ? (state as RegistrationFailure).message 
-                        : (state as AuthenticationFailure).message),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              } else if (state is PhoneVerificationSent) {
-                // Navigate to verification screen
-                // Navigator.push(
-                //   context,
-                //   MaterialPageRoute(
-                //     builder: (context) => PhoneVerificationScreen(
-                //       verificationId: state.verificationId,
-                //       phoneNumber: state.phoneNumber,
-                //     ),
-                //   ),
-                // );
-              } else if (state is Authenticated) {
-                // User authenticated successfully
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Registration successful!'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-                Navigator.of(context).pop();
-              }
-            },
+            listener: _authStateListener,
             builder: (context, state) {
               return Center(
                 child: SingleChildScrollView(
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const SizedBox(height: 40),
-                          _buildHeader(),
-                          const SizedBox(height: 50),
-                          _buildForm(context, state),
-                          const SizedBox(height: 24),
-                          _buildSignUpButton(context, state),
-                          const SizedBox(height: 24),
-                          _buildSocialLoginDivider(),
-                          const SizedBox(height: 24),
-                          _buildSocialLoginButtons(context, state),
-                          const SizedBox(height: 24),
-                          _buildLoginOption(context),
-                          const SizedBox(height: 16),
-                        ],
-                      ),
+                    padding: const EdgeInsets.all(48.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildHeader(),
+                        const SizedBox(height: 50),
+                        _buildForm(context, state),
+                        const SizedBox(height: 24),
+                        _buildSignUpButton(context, state),
+                        const SizedBox(height: 24),
+                        _buildSocialLoginSection(context, state),
+                        const SizedBox(height: 24),
+                        _buildLoginOption(context),
+                      ],
                     ),
                   ),
                 ),
@@ -226,6 +191,39 @@ class _SignupScreenState extends State<SignupScreen> {
         ),
       ),
     );
+  }
+
+  void _authStateListener(BuildContext context, AuthState state) {
+    if (state is RegistrationFailure || state is AuthenticationFailure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state is RegistrationFailure 
+              ? (state as RegistrationFailure).message 
+              : (state as AuthenticationFailure).message),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } else if (state is PhoneVerificationSent) {
+      // Navigate to verification screen
+      // Navigator.push(
+      //   context,
+      //   MaterialPageRoute(
+      //     builder: (context) => PhoneVerificationScreen(
+      //       verificationId: state.verificationId,
+      //       phoneNumber: state.phoneNumber,
+      //     ),
+      //   ),
+      // );
+    } else if (state is Authenticated) {
+      // User authenticated successfully
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Registration successful!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.of(context).pop();
+    }
   }
 
   Widget _buildHeader() {
@@ -260,163 +258,44 @@ class _SignupScreenState extends State<SignupScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
+          AuthInputField(
             controller: _phoneController,
+            hintText: 'Phone Number',
             keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              hintText: 'Phone Number',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 20,
-              ),
-              prefixIcon: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                child: const Text(
-                  "+1", // USA code - update as needed
-                  style: TextStyle(fontSize: 16),
-                ),
-              ),
-              prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-            ),
             enabled: !isLoading,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your phone number';
-              }
-              
-              // Simple phone validation
-              final cleanPhone = value.replaceAll(RegExp(r'[^0-9]'), '');
-              if (cleanPhone.length < 10) {
-                return 'Please enter a valid phone number';
-              }
-              return null;
-            },
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  hintText: 'Password',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 20,
-                  ),
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                          color: Colors.grey,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                enabled: !isLoading,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
-                  }
-                  if (!_hasMinLength) {
-                    return 'Password must be 8-20 characters';
-                  }
-                  if (!_hasLetterAndNumber) {
-                    return 'Password must contain at least 1 letter and 1 number';
-                  }
-                  if (!_hasSpecialChar) {
-                    return 'Password must contain at least 1 special character';
-                  }
-                  return null;
-                },
-              ),
-          
-            ],
+            prefix: '+98',
+            validator: _validatePhone,
           ),
           const SizedBox(height: 16),
-          TextFormField(
-            controller: _confirmPasswordController,
-            obscureText: _obscureConfirmPassword,
-            decoration: InputDecoration(
-              hintText: 'Confirm Password',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 20,
-              ),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  color: Colors.grey,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _obscureConfirmPassword = !_obscureConfirmPassword;
-                  });
-                },
-              ),
-            ),
+          
+          AuthInputField(
+            controller: _passwordController,
+            hintText: 'Password',
+            obscureText: _obscurePassword,
             enabled: !isLoading,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please confirm your password';
-              }
-              if (value != _passwordController.text) {
-                return 'Passwords do not match';
-              }
-              return null;
-            },
+            suffix: _buildVisibilityToggle(_obscurePassword, () {
+              setState(() {
+                _obscurePassword = !_obscurePassword;
+              });
+            }),
+            validator: _validatePassword,
           ),
+          
+          const SizedBox(height: 16),
+          
+          AuthInputField(
+            controller: _confirmPasswordController,
+            hintText: 'Confirm Password',
+            obscureText: _obscureConfirmPassword,
+            enabled: !isLoading,
+            suffix: _buildVisibilityToggle(_obscureConfirmPassword, () {
+              setState(() {
+                _obscureConfirmPassword = !_obscureConfirmPassword;
+              });
+            }),
+            validator: _validateConfirmPassword,
+          ),
+          
           TextButton.icon(
             onPressed: _suggestPassword,
             icon: const Icon(Icons.auto_fix_high, size: 16),
@@ -429,87 +308,67 @@ class _SignupScreenState extends State<SignupScreen> {
               alignment: Alignment.centerLeft,
             ),
           ),
+          
           const SizedBox(height: 24),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Divider(height: 1, thickness: 1),
-              const SizedBox(height: 16),
-              Text(
-                'Your password must have at least:',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF333333),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _buildPasswordRequirement(
-                '8 characters (20 max)', 
-                _hasMinLength
-              ),
-              const SizedBox(height: 8),
-              _buildPasswordRequirement(
-                '1 letter and 1 number', 
-                _hasLetterAndNumber
-              ),
-              const SizedBox(height: 8),
-              _buildPasswordRequirement(
-                '1 special character (Example: # ? ! \$ & @)', 
-                _hasSpecialChar
-              ),
-              const SizedBox(height: 16),
-              LinearProgressIndicator(
-                value: _passwordStrength,
-                backgroundColor: Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation<Color>(_strengthColor),
-                minHeight: 4,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Password strength:',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 14,
-                    ),
-                  ),
-                  Text(
-                    _passwordStrengthText,
-                    style: TextStyle(
-                      color: _strengthColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          PasswordStrengthIndicator(
+            strength: _passwordStrength,
+            strengthText: _passwordStrengthText,
+            strengthColor: _strengthColor,
+            hasMinLength: _hasMinLength,
+            hasLetterAndNumber: _hasLetterAndNumber,
+            hasSpecialChar: _hasSpecialChar,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPasswordRequirement(String requirement, bool isMet) {
-    return Row(
-      children: [
-        Icon(
-          isMet ? Icons.check_circle : Icons.check_circle_outline,
-          color: isMet ? Colors.green : Colors.grey.shade400,
-          size: 20,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          requirement,
-          style: TextStyle(
-            color: isMet ? Colors.black87 : Colors.grey.shade600,
-          ),
-        ),
-      ],
+  String? _validatePhone(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your phone number';
+    }
+    
+    // Simple phone validation
+    final cleanPhone = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanPhone.length < 10) {
+      return 'Please enter a valid phone number';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your password';
+    }
+    if (!_hasMinLength) {
+      return 'Password must be 8-20 characters';
+    }
+    if (!_hasLetterAndNumber) {
+      return 'Password must contain at least 1 letter and 1 number';
+    }
+    if (!_hasSpecialChar) {
+      return 'Password must contain at least 1 special character';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please confirm your password';
+    }
+    if (value != _passwordController.text) {
+      return 'Passwords do not match';
+    }
+    return null;
+  }
+
+  Widget _buildVisibilityToggle(bool isObscured, VoidCallback onTap) {
+    return IconButton(
+      icon: Icon(
+        isObscured ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+        color: Colors.grey,
+      ),
+      onPressed: onTap,
     );
   }
 
@@ -544,6 +403,16 @@ class _SignupScreenState extends State<SignupScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+    );
+  }
+
+  Widget _buildSocialLoginSection(BuildContext context, AuthState state) {
+    return Column(
+      children: [
+        _buildSocialLoginDivider(),
+        const SizedBox(height: 24),
+        _buildSocialLoginButtons(context, state),
+      ],
     );
   }
 
@@ -582,13 +451,11 @@ class _SignupScreenState extends State<SignupScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Google Sign-In Button
         SocialIconButton.google(
-          onPressed:  () => _signInWithGoogle(context),
+          onPressed: () => _signInWithGoogle(context),
           isLoading: isLoading,
         ),
         const SizedBox(width: 24),
-        // Apple Sign-In Button
         SocialIconButton.apple(
           onPressed: () => _signInWithApple(context),
           isLoading: isLoading,
