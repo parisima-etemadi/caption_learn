@@ -3,7 +3,6 @@ import 'package:caption_learn/core/constants/app_constants.dart';
 import 'package:caption_learn/core/widgets/network_error_widget.dart';
 import 'package:caption_learn/core/widgets/social_icon_button.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:caption_learn/features/auth/presentation/screens/phone_verification_screen.dart';
 import 'package:caption_learn/features/auth/presentation/screens/signup_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -88,15 +87,15 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             } else if (state is PhoneVerificationSent) {
               // Navigate to verification screen
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PhoneVerificationScreen(
-                    verificationId: state.verificationId,
-                    phoneNumber: state.phoneNumber,
-                  ),
-                ),
-              );
+              // Navigator.push(
+              //   context,
+              //   MaterialPageRoute(
+              //     builder: (context) => PhoneVerificationScreen(
+              //       verificationId: state.verificationId,
+              //       phoneNumber: state.phoneNumber,
+              //     ),
+              //   ),
+              // );
             }
           },
           builder: (context, state) {

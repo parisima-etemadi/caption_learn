@@ -1,6 +1,5 @@
 import 'package:caption_learn/core/widgets/social_icon_button.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:caption_learn/features/auth/presentation/screens/phone_verification_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:math';
@@ -172,15 +171,15 @@ class _SignupScreenState extends State<SignupScreen> {
                 );
               } else if (state is PhoneVerificationSent) {
                 // Navigate to verification screen
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => PhoneVerificationScreen(
-                      verificationId: state.verificationId,
-                      phoneNumber: state.phoneNumber,
-                    ),
-                  ),
-                );
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute(
+                //     builder: (context) => PhoneVerificationScreen(
+                //       verificationId: state.verificationId,
+                //       phoneNumber: state.phoneNumber,
+                //     ),
+                //   ),
+                // );
               } else if (state is Authenticated) {
                 // User authenticated successfully
                 ScaffoldMessenger.of(context).showSnackBar(
