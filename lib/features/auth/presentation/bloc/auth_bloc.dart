@@ -1,5 +1,6 @@
+// lib/features/auth/presentation/bloc/auth_bloc.dart
 import 'dart:async';
-
+import 'package:equatable/equatable.dart';
 import 'package:bloc/bloc.dart';
 import 'package:caption_learn/core/utils/error_handler.dart';
 import 'package:caption_learn/services/auth_service.dart';
@@ -10,7 +11,6 @@ import 'package:meta/meta.dart';
 part 'auth_event.dart';
 part 'auth_state.dart';
 
-
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthService _authService;
   final ErrorHandler _errorHandler = ErrorHandler('AuthBloc');
@@ -20,12 +20,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       : _authService = authService,
         super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
-    on<SignInWithEmailPasswordRequested>(_onSignInWithEmailPasswordRequested);
-    on<SignUpWithEmailPasswordRequested>(_onSignUpWithEmailPasswordRequested);
     on<SignInWithGoogleRequested>(_onSignInWithGoogleRequested);
     on<SignInWithAppleRequested>(_onSignInWithAppleRequested);
     on<SignOutRequested>(_onSignOutRequested);
     on<AuthStateChanged>(_onAuthStateChanged);
+    // Register phone auth event handlers with new names
+    on<SendPhoneCodeEvent>(_onSendPhoneCode);
+    on<VerifyPhoneCodeEvent>(_onVerifyPhoneCode);
 
     // Listen to authentication state changes
     _authStateSubscription = _authService.authStateChanges.listen(
@@ -43,39 +44,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(Authenticated(user));
     } else {
       emit(Unauthenticated());
-    }
-  }
-
-  Future<void> _onSignInWithEmailPasswordRequested(
-    SignInWithEmailPasswordRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(Authenticating());
-    try {
-      await _authService.signInWithEmailPassword(
-        event.email,
-        event.password,
-      );
-      // The AuthStateChanged event will handle the state update
-    } catch (e) {
-      emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
-    }
-  }
-
-  Future<void> _onSignUpWithEmailPasswordRequested(
-    SignUpWithEmailPasswordRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(Authenticating());
-    try {
-      await _authService.createAccount(
-        event.email,
-        event.password,
-      );
-      emit(RegistrationSuccess());
-      // The AuthStateChanged event will handle the state update
-    } catch (e) {
-      emit(RegistrationFailure(_errorHandler.handleAuthError(e)));
     }
   }
 
@@ -126,6 +94,52 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(Authenticated(event.user!));
     } else {
       emit(Unauthenticated());
+    }
+  }
+  
+  // Updated method name and parameter type
+  Future<void> _onSendPhoneCode(
+    SendPhoneCodeEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(Authenticating());
+    try {
+      await _authService.verifyPhoneNumber(
+        phoneNumber: event.phoneNumber,
+        onCodeSent: (String verificationId) {
+          emit(PhoneVerificationSent(verificationId, event.phoneNumber));
+        },
+        onVerificationFailed: (FirebaseAuthException e) {
+          emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
+        },
+        onVerificationCompleted: (PhoneAuthCredential credential) async {
+          try {
+            await _authService.signInWithCredential(credential);
+            // AuthStateChanged event will handle the state update
+          } catch (e) {
+            emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
+          }
+        },
+      );
+    } catch (e) {
+      emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
+    }
+  }
+
+  // Updated method name and parameter type
+  Future<void> _onVerifyPhoneCode(
+    VerifyPhoneCodeEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(Authenticating());
+    try {
+      await _authService.signInWithPhoneCode(
+        event.smsCode,
+        event.verificationId,
+      );
+      // The AuthStateChanged event will handle the state update
+    } catch (e) {
+      emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
     }
   }
 

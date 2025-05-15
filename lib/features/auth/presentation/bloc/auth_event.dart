@@ -1,3 +1,4 @@
+// lib/features/auth/presentation/bloc/auth_event.dart
 part of 'auth_bloc.dart';
 
 @immutable
@@ -10,34 +11,6 @@ abstract class AuthEvent extends Equatable {
 
 // When the app starts, check authentication state
 class AuthCheckRequested extends AuthEvent {}
-
-// User tries to login with email & password
-class SignInWithEmailPasswordRequested extends AuthEvent {
-  final String email;
-  final String password;
-
-  const SignInWithEmailPasswordRequested({
-    required this.email,
-    required this.password,
-  });
-
-  @override
-  List<Object> get props => [email, password];
-}
-
-// User tries to register with email & password
-class SignUpWithEmailPasswordRequested extends AuthEvent {
-  final String email;
-  final String password;
-
-  const SignUpWithEmailPasswordRequested({
-    required this.email,
-    required this.password,
-  });
-
-  @override
-  List<Object> get props => [email, password];
-}
 
 // User tries to sign in with Google
 class SignInWithGoogleRequested extends AuthEvent {}
@@ -56,4 +29,30 @@ class AuthStateChanged extends AuthEvent {
 
   @override
   List<Object?> get props => [user];
+}
+
+// Phone verification - sending code to phone
+class SendPhoneCodeEvent extends AuthEvent {
+  final String phoneNumber;
+  
+  const SendPhoneCodeEvent({
+    required this.phoneNumber,
+  });
+  
+  @override
+  List<Object> get props => [phoneNumber];
+}
+
+// Verify the SMS code entered by user
+class VerifyPhoneCodeEvent extends AuthEvent {
+  final String smsCode;
+  final String? verificationId;
+  
+  const VerifyPhoneCodeEvent({
+    required this.smsCode,
+    this.verificationId,
+  });
+  
+  @override
+  List<Object?> get props => [smsCode, verificationId];
 }

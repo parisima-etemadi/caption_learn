@@ -1,7 +1,9 @@
+// lib/features/auth/presentation/screens/login_screen.dart
 import 'package:caption_learn/core/constants/app_constants.dart';
 import 'package:caption_learn/core/widgets/network_error_widget.dart';
 import 'package:caption_learn/core/widgets/social_icon_button.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:caption_learn/features/auth/presentation/screens/phone_verification_screen.dart';
 import 'package:caption_learn/features/auth/presentation/screens/signup_screen.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -16,14 +18,12 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _usernameController.dispose();
-    _passwordController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -32,12 +32,14 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    // Format phone with country code
+    final phoneNumber = "+98${_phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')}";
+    
     context.read<AuthBloc>().add(
-          SignInWithEmailPasswordRequested(
-            email: _usernameController.text.trim(),
-            password: _passwordController.text.trim(),
-          ),
-        );
+      SendPhoneCodeEvent(
+        phoneNumber: phoneNumber,
+      ),
+    );
   }
 
   void _signInWithGoogle(BuildContext context) async {
@@ -60,11 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _signInWithApple(BuildContext context) {
-    // context.read<AuthBloc>().add(SignInWithAppleRequested());
-  }
-
-  void _signInWithFacebook(BuildContext context) {
-    // Implement Facebook login
+    context.read<AuthBloc>().add(SignInWithAppleRequested());
   }
 
   @override
@@ -87,6 +85,17 @@ class _LoginScreenState extends State<LoginScreen> {
               // Show error message
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(state.message)),
+              );
+            } else if (state is PhoneVerificationSent) {
+              // Navigate to verification screen
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PhoneVerificationScreen(
+                    verificationId: state.verificationId,
+                    phoneNumber: state.phoneNumber,
+                  ),
+                ),
               );
             }
           },
@@ -154,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Wellcome back you\'ve been missed!',
+          'Welcome back you\'ve been missed!',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 16,
@@ -174,10 +183,10 @@ class _LoginScreenState extends State<LoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextFormField(
-            controller: _usernameController,
-            keyboardType: TextInputType.emailAddress,
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
             decoration: InputDecoration(
-              hintText: 'Enter username',
+              hintText: 'Phone Number',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -196,55 +205,25 @@ class _LoginScreenState extends State<LoginScreen> {
                 horizontal: 16,
                 vertical: 20,
               ),
-            ),
-            enabled: !isLoading,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your username';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _passwordController,
-            obscureText: _obscurePassword,
-            decoration: InputDecoration(
-              hintText: 'Password',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 20,
-              ),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  color: Colors.grey,
+              prefixIcon: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                child: const Text(
+                  "+98", // USA code - update as needed
+                  style: TextStyle(fontSize: 16),
                 ),
-                onPressed: () {
-                  setState(() {
-                    _obscurePassword = !_obscurePassword;
-                  });
-                },
               ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
             ),
             enabled: !isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter your password';
+                return 'Please enter your phone number';
+              }
+              
+              // Simple phone validation - modify as needed
+              final cleanPhone = value.replaceAll(RegExp(r'[^0-9]'), '');
+              if (cleanPhone.length < 10) {
+                return 'Please enter a valid phone number';
               }
               return null;
             },
@@ -266,7 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: EdgeInsets.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
-        child: const Text('Recovery Password'),
+        child: const Text('Recovery Phone Number'),
       ),
     );
   }
@@ -296,7 +275,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             )
           : const Text(
-              'Sign In',
+              'Continue',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -347,17 +326,14 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(width: 24),
         // Apple Sign-In Button
-       SocialIconButton.apple(
+        SocialIconButton.apple(
           onPressed: () => _signInWithApple(context),
           isLoading: isLoading,
         ),
-        const SizedBox(width: 24),
-       
       ],
     );
   }
 
- 
   Widget _buildSignUpOption(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,

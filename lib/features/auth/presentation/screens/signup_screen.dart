@@ -1,10 +1,9 @@
-import 'package:caption_learn/core/constants/app_constants.dart';
 import 'package:caption_learn/core/widgets/social_icon_button.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:caption_learn/features/auth/presentation/screens/phone_verification_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:math';
-
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -15,7 +14,7 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController(); // Changed from email
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
@@ -37,7 +36,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -127,12 +126,14 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
+    // Format phone with country code
+    final phoneNumber = "+98${_phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')}";
+    
     context.read<AuthBloc>().add(
-          SignUpWithEmailPasswordRequested(
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim(),
-          ),
-        );
+      SendPhoneCodeEvent(
+        phoneNumber: phoneNumber,
+      ),
+    );
   }
 
   void _signInWithGoogle(BuildContext context) {
@@ -141,10 +142,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
   void _signInWithApple(BuildContext context) {
     context.read<AuthBloc>().add(SignInWithAppleRequested());
-  }
-
-  void _signInWithFacebook(BuildContext context) {
-    // Implement Facebook login
   }
 
   @override
@@ -164,22 +161,35 @@ class _SignupScreenState extends State<SignupScreen> {
         child: SafeArea(
           child: BlocConsumer<AuthBloc, AuthState>(
             listener: (context, state) {
-              if (state is RegistrationFailure) {
+              if (state is RegistrationFailure || state is AuthenticationFailure) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(state.message),
+                    content: Text(state is RegistrationFailure 
+                        ? (state as RegistrationFailure).message 
+                        : (state as AuthenticationFailure).message),
                     backgroundColor: Colors.red,
                   ),
                 );
-              } else if (state is RegistrationSuccess) {
+              } else if (state is PhoneVerificationSent) {
+                // Navigate to verification screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PhoneVerificationScreen(
+                      verificationId: state.verificationId,
+                      phoneNumber: state.phoneNumber,
+                    ),
+                  ),
+                );
+              } else if (state is Authenticated) {
+                // User authenticated successfully
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Account created successfully!'),
+                    content: Text('Registration successful!'),
                     backgroundColor: Colors.green,
                   ),
                 );
-                // Return to login screen
-                Navigator.pop(context);
+                Navigator.of(context).pop();
               }
             },
             builder: (context, state) {
@@ -252,10 +262,10 @@ class _SignupScreenState extends State<SignupScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           TextFormField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
             decoration: InputDecoration(
-              hintText: 'Email',
+              hintText: 'Phone Number',
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
@@ -274,16 +284,25 @@ class _SignupScreenState extends State<SignupScreen> {
                 horizontal: 16,
                 vertical: 20,
               ),
+              prefixIcon: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                child: const Text(
+                  "+1", // USA code - update as needed
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+              prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
             ),
             enabled: !isLoading,
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter your email';
+                return 'Please enter your phone number';
               }
-              if (!RegExp(
-                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-              ).hasMatch(value)) {
-                return 'Please enter a valid email';
+              
+              // Simple phone validation
+              final cleanPhone = value.replaceAll(RegExp(r'[^0-9]'), '');
+              if (cleanPhone.length < 10) {
+                return 'Please enter a valid phone number';
               }
               return null;
             },
@@ -399,18 +418,18 @@ class _SignupScreenState extends State<SignupScreen> {
               return null;
             },
           ),
-             TextButton.icon(
-              onPressed: _suggestPassword,
-              icon: const Icon(Icons.auto_fix_high, size: 16),
-              label: const Text('Suggest Password'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.blue,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                alignment: Alignment.centerLeft,
-              ),
+          TextButton.icon(
+            onPressed: _suggestPassword,
+            icon: const Icon(Icons.auto_fix_high, size: 16),
+            label: const Text('Suggest Password'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.blue,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              alignment: Alignment.centerLeft,
             ),
+          ),
           const SizedBox(height: 24),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,13 +594,9 @@ class _SignupScreenState extends State<SignupScreen> {
           onPressed: () => _signInWithApple(context),
           isLoading: isLoading,
         ),
-        const SizedBox(width: 24),
-        // Facebook Sign-In Button
-      
       ],
     );
   }
-
 
   Widget _buildLoginOption(BuildContext context) {
     return Row(

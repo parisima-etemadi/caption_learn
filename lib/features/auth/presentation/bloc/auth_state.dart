@@ -1,3 +1,4 @@
+// lib/features/auth/presentation/bloc/auth_state.dart
 part of 'auth_bloc.dart';
 
 @immutable
@@ -51,4 +52,15 @@ class RegistrationFailure extends AuthState {
 
   @override
   List<Object> get props => [message];
+}
+
+// When phone verification code has been sent
+class PhoneVerificationSent extends AuthState {
+  final String verificationId;
+  final String phoneNumber;
+
+  const PhoneVerificationSent(this.verificationId, this.phoneNumber);
+
+  @override
+  List<Object> get props => [verificationId, phoneNumber];
 }
