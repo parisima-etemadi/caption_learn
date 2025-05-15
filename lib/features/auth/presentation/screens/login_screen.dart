@@ -4,6 +4,7 @@ import 'package:caption_learn/core/widgets/network_error_widget.dart';
 import 'package:caption_learn/core/widgets/social_icon_button.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:caption_learn/features/auth/presentation/screens/signup_screen.dart';
+import 'package:caption_learn/features/auth/presentation/widgets/auth_input_field.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,7 +19,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
-  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -79,25 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         child: BlocConsumer<AuthBloc, AuthState>(
-          listener: (context, state) {
-            if (state is AuthenticationFailure) {
-              // Show error message
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.message)),
-              );
-            } else if (state is PhoneVerificationSent) {
-              // Navigate to verification screen
-              // Navigator.push(
-              //   context,
-              //   MaterialPageRoute(
-              //     builder: (context) => PhoneVerificationScreen(
-              //       verificationId: state.verificationId,
-              //       phoneNumber: state.phoneNumber,
-              //     ),
-              //   ),
-              // );
-            }
-          },
+          listener: _authStateListener,
           builder: (context, state) {
             // Show error widget for network errors
             if (state is AuthenticationFailure && 
@@ -114,30 +96,23 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Center(
                 child: SingleChildScrollView(
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const SizedBox(height: 40),
-                          _buildHeader(),
-                          const SizedBox(height: 50),
-                          _buildLoginForm(context, state),
-                          const SizedBox(height: 16),
-                          _buildForgotPassword(),
-                          const SizedBox(height: 24),
-                          _buildSignInButton(context, state),
-                          const SizedBox(height: 24),
-                          _buildSocialLoginDivider(),
-                          const SizedBox(height: 24),
-                          _buildSocialLoginButtons(context, state),
-                          const SizedBox(height: 24),
-                          _buildSignUpOption(context),
-                          const SizedBox(height: 16),
-                        ],
-                      ),
+                    padding: const EdgeInsets.all(48.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildHeader(),
+                        const SizedBox(height: 50),
+                        _buildLoginForm(context, state),
+                        const SizedBox(height: 16),
+                        _buildForgotPassword(),
+                        const SizedBox(height: 24),
+                        _buildSignInButton(context, state),
+                        const SizedBox(height: 24),
+                        _buildSocialLoginSection(context, state),
+                        const SizedBox(height: 24),
+                        _buildSignUpOption(context),
+                      ],
                     ),
                   ),
                 ),
@@ -147,6 +122,26 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  void _authStateListener(BuildContext context, AuthState state) {
+    if (state is AuthenticationFailure) {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(state.message)),
+      );
+    } else if (state is PhoneVerificationSent) {
+      // Navigate to verification screen
+      // Navigator.push(
+      //   context,
+      //   MaterialPageRoute(
+      //     builder: (context) => PhoneVerificationScreen(
+      //       verificationId: state.verificationId,
+      //       phoneNumber: state.phoneNumber,
+      //     ),
+      //   ),
+      // );
+    }
   }
 
   Widget _buildHeader() {
@@ -178,58 +173,28 @@ class _LoginScreenState extends State<LoginScreen> {
     
     return Form(
       key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              hintText: 'Phone Number',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 20,
-              ),
-              prefixIcon: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                child: const Text(
-                  "+98", // USA code - update as needed
-                  style: TextStyle(fontSize: 16),
-                ),
-              ),
-              prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-            ),
-            enabled: !isLoading,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your phone number';
-              }
-              
-              // Simple phone validation - modify as needed
-              final cleanPhone = value.replaceAll(RegExp(r'[^0-9]'), '');
-              if (cleanPhone.length < 10) {
-                return 'Please enter a valid phone number';
-              }
-              return null;
-            },
-          ),
-        ],
+      child: AuthInputField(
+        controller: _phoneController,
+        hintText: 'Phone Number',
+        keyboardType: TextInputType.phone,
+        enabled: !isLoading,
+        prefix: '+98',
+        validator: _validatePhone,
       ),
     );
+  }
+
+  String? _validatePhone(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Please enter your phone number';
+    }
+    
+    // Simple phone validation - modify as needed
+    final cleanPhone = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanPhone.length < 10) {
+      return 'Please enter a valid phone number';
+    }
+    return null;
   }
 
   Widget _buildForgotPassword() {
@@ -280,6 +245,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+    );
+  }
+
+  Widget _buildSocialLoginSection(BuildContext context, AuthState state) {
+    return Column(
+      children: [
+        _buildSocialLoginDivider(),
+        const SizedBox(height: 24),
+        _buildSocialLoginButtons(context, state),
+      ],
     );
   }
 
