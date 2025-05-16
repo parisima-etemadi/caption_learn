@@ -1,7 +1,9 @@
 import 'package:caption_learn/core/widgets/social_icon_button.dart';
+import 'package:caption_learn/features/auth/domain/validator/auth_validators.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/auth_input_field.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/password_strength_indicator.dart';
+import 'package:caption_learn/features/auth/presentation/widgets/social_login_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:math';
@@ -178,7 +180,12 @@ class _SignupScreenState extends State<SignupScreen> {
                         const SizedBox(height: 24),
                         _buildSignUpButton(context, state),
                         const SizedBox(height: 24),
-                        _buildSocialLoginSection(context, state),
+                        SocialLoginSection(
+                          isLoading: state is Authenticating,
+                          dividerText: 'or continue with',
+                          onGoogleSignIn: () => _signInWithGoogle(context),
+                          onAppleSignIn: () => _signInWithApple(context),
+                        ),
                         const SizedBox(height: 24),
                         _buildLoginOption(context),
                       ],
@@ -264,7 +271,7 @@ class _SignupScreenState extends State<SignupScreen> {
             keyboardType: TextInputType.phone,
             enabled: !isLoading,
             prefix: '+98',
-            validator: _validatePhone,
+            validator: AuthValidators.validatePhone,
           ),
           const SizedBox(height: 16),
           
@@ -278,7 +285,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 _obscurePassword = !_obscurePassword;
               });
             }),
-            validator: _validatePassword,
+            validator: (value) => AuthValidators.validatePassword(value, hasMinLength: _hasMinLength, hasLetterAndNumber: _hasLetterAndNumber, hasSpecialChar: _hasSpecialChar),
           ),
           
           const SizedBox(height: 16),
@@ -293,7 +300,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 _obscureConfirmPassword = !_obscureConfirmPassword;
               });
             }),
-            validator: _validateConfirmPassword,
+            validator: (value) => AuthValidators.validateConfirmPassword(value, _passwordController.text),
           ),
           
           TextButton.icon(
@@ -323,44 +330,9 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your phone number';
-    }
-    
-    // Simple phone validation
-    final cleanPhone = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (cleanPhone.length < 10) {
-      return 'Please enter a valid phone number';
-    }
-    return null;
-  }
+ 
 
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your password';
-    }
-    if (!_hasMinLength) {
-      return 'Password must be 8-20 characters';
-    }
-    if (!_hasLetterAndNumber) {
-      return 'Password must contain at least 1 letter and 1 number';
-    }
-    if (!_hasSpecialChar) {
-      return 'Password must contain at least 1 special character';
-    }
-    return null;
-  }
 
-  String? _validateConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please confirm your password';
-    }
-    if (value != _passwordController.text) {
-      return 'Passwords do not match';
-    }
-    return null;
-  }
 
   Widget _buildVisibilityToggle(bool isObscured, VoidCallback onTap) {
     return IconButton(
@@ -406,63 +378,9 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  Widget _buildSocialLoginSection(BuildContext context, AuthState state) {
-    return Column(
-      children: [
-        _buildSocialLoginDivider(),
-        const SizedBox(height: 24),
-        _buildSocialLoginButtons(context, state),
-      ],
-    );
-  }
 
-  Widget _buildSocialLoginDivider() {
-    return Row(
-      children: [
-        Expanded(
-          child: Divider(
-            color: Colors.grey.shade400,
-            thickness: 1,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Or sign up with',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 14,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Divider(
-            color: Colors.grey.shade400,
-            thickness: 1,
-          ),
-        ),
-      ],
-    );
-  }
 
-  Widget _buildSocialLoginButtons(BuildContext context, AuthState state) {
-    final isLoading = state is Authenticating;
-    
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SocialIconButton.google(
-          onPressed: () => _signInWithGoogle(context),
-          isLoading: isLoading,
-        ),
-        const SizedBox(width: 24),
-        SocialIconButton.apple(
-          onPressed: () => _signInWithApple(context),
-          isLoading: isLoading,
-        ),
-      ],
-    );
-  }
+  
 
   Widget _buildLoginOption(BuildContext context) {
     return Row(
