@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
 
-class AuthInputField extends StatelessWidget {
+class AuthTextFormField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
-  final bool obscureText;
   final TextInputType keyboardType;
   final Widget? suffix;
   final String? prefix;
   final bool enabled;
   final String? Function(String?)? validator;
 
-  const AuthInputField({
+  const AuthTextFormField({
     Key? key,
     required this.controller,
     required this.hintText,
-    this.obscureText = false,
     this.keyboardType = TextInputType.text,
     this.suffix,
     this.prefix,
@@ -26,7 +24,6 @@ class AuthInputField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
-      obscureText: obscureText,
       keyboardType: keyboardType,
       enabled: enabled,
       decoration: InputDecoration(

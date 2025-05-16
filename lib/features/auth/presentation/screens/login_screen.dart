@@ -1,10 +1,9 @@
-// lib/features/auth/presentation/screens/login_screen.dart
-import 'package:caption_learn/core/constants/app_constants.dart';
 import 'package:caption_learn/core/widgets/network_error_widget.dart';
-import 'package:caption_learn/core/widgets/social_icon_button.dart';
+import 'package:caption_learn/features/auth/domain/validator/auth_validators.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:caption_learn/features/auth/presentation/screens/signup_screen.dart';
-import 'package:caption_learn/features/auth/presentation/widgets/auth_input_field.dart';
+import 'package:caption_learn/features/auth/presentation/widgets/auth_text_form_field.dart';
+import 'package:caption_learn/features/auth/presentation/widgets/social_login_section.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -41,19 +40,21 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _signInWithGoogle(BuildContext context) async {
+  Future<void> _signInWithGoogle(BuildContext context) async {
     // Check connectivity first
     final connectivityResult = await Connectivity().checkConnectivity();
     final isConnected = connectivityResult.isNotEmpty && connectivityResult.first != ConnectivityResult.none;
     
     if (!isConnected) {
       // Show a snackbar if there's no connection
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No internet connection. Please check your network settings and try again.'),
-          duration: Duration(seconds: 3),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No internet connection. Please check your network settings and try again.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
       return;
     }
     
@@ -92,6 +93,8 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             }
             
+            final isLoading = state is Authenticating;
+            
             return SafeArea(
               child: Center(
                 child: SingleChildScrollView(
@@ -103,13 +106,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         _buildHeader(),
                         const SizedBox(height: 50),
-                        _buildLoginForm(context, state),
+                        _buildLoginForm(context, isLoading),
                         const SizedBox(height: 16),
                         _buildForgotPassword(),
                         const SizedBox(height: 24),
-                        _buildSignInButton(context, state),
+                        _buildSignInButton(context, isLoading),
                         const SizedBox(height: 24),
-                        _buildSocialLoginSection(context, state),
+                        SocialLoginSection(
+                          isLoading: isLoading,
+                          dividerText: 'Or continue with',
+                          onGoogleSignIn: () => _signInWithGoogle(context),
+                          onAppleSignIn: () => _signInWithApple(context),
+                        ),
                         const SizedBox(height: 24),
                         _buildSignUpOption(context),
                       ],
@@ -146,8 +154,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildHeader() {
     return Column(
-      children: [
-        const Text(
+      children: const [
+        Text(
           'Hello Again!',
           style: TextStyle(
             fontSize: 28,
@@ -155,8 +163,8 @@ class _LoginScreenState extends State<LoginScreen> {
             color: Color(0xFF333333),
           ),
         ),
-        const SizedBox(height: 8),
-        const Text(
+        SizedBox(height: 8),
+        Text(
           'Welcome back you\'ve been missed!',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -168,33 +176,18 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildLoginForm(BuildContext context, AuthState state) {
-    final isLoading = state is Authenticating;
-    
+  Widget _buildLoginForm(BuildContext context, bool isLoading) {
     return Form(
       key: _formKey,
-      child: AuthInputField(
+      child: AuthTextFormField(
         controller: _phoneController,
         hintText: 'Phone Number',
         keyboardType: TextInputType.phone,
         enabled: !isLoading,
         prefix: '+98',
-        validator: _validatePhone,
+        validator: AuthValidators.validatePhone,
       ),
     );
-  }
-
-  String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Please enter your phone number';
-    }
-    
-    // Simple phone validation - modify as needed
-    final cleanPhone = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (cleanPhone.length < 10) {
-      return 'Please enter a valid phone number';
-    }
-    return null;
   }
 
   Widget _buildForgotPassword() {
@@ -214,9 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildSignInButton(BuildContext context, AuthState state) {
-    final isLoading = state is Authenticating;
-    
+  Widget _buildSignInButton(BuildContext context, bool isLoading) {
     return ElevatedButton(
       onPressed: isLoading ? null : () => _submitForm(context),
       style: ElevatedButton.styleFrom(
@@ -245,66 +236,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-    );
-  }
-
-  Widget _buildSocialLoginSection(BuildContext context, AuthState state) {
-    return Column(
-      children: [
-        _buildSocialLoginDivider(),
-        const SizedBox(height: 24),
-        _buildSocialLoginButtons(context, state),
-      ],
-    );
-  }
-
-  Widget _buildSocialLoginDivider() {
-    return Row(
-      children: [
-        Expanded(
-          child: Divider(
-            color: Colors.grey.shade400,
-            thickness: 1,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Or continue with',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 14,
-            ),
-          ),
-        ),
-        Expanded(
-          child: Divider(
-            color: Colors.grey.shade400,
-            thickness: 1,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSocialLoginButtons(BuildContext context, AuthState state) {
-    final isLoading = state is Authenticating;
-    
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Google Sign-In Button
-        SocialIconButton.google(
-          onPressed: () => _signInWithGoogle(context),
-          isLoading: isLoading,
-        ),
-        const SizedBox(width: 24),
-        // Apple Sign-In Button
-        SocialIconButton.apple(
-          onPressed: () => _signInWithApple(context),
-          isLoading: isLoading,
-        ),
-      ],
     );
   }
 
