@@ -3,6 +3,7 @@ import 'package:caption_learn/features/auth/domain/validator/auth_validators.dar
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/auth_text_form_field.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/password_text_form_field.dart';
+import 'package:caption_learn/features/auth/presentation/widgets/password_strength_indicator.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/social_login_section.dart';
 import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
@@ -177,8 +178,7 @@ class _SignupScreenState extends State<SignupScreen> {
             controller: _passwordController,
             hintText: 'Password',
             enabled: !isLoading,
-            showStrengthIndicator: true,
-            onSuggestPassword: _suggestPassword,
+            showStrengthIndicator: false,
             onStrengthChanged: (strength) => setState(() => _passwordStrength = strength),
             validator: (value) => AuthValidators.validatePassword(
               value,
@@ -200,6 +200,36 @@ class _SignupScreenState extends State<SignupScreen> {
               _passwordController.text
             ),
           ),
+          const SizedBox(height: 8),
+          // Suggest Password button
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _suggestPassword,
+              icon: const Icon(Icons.auto_fix_high, size: 16),
+              label: const Text('Suggest Password'),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blue,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+          
+          // Password strength indicator
+          if (_passwordController.text.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: PasswordStrengthIndicator(
+                strength: _passwordStrength.score,
+                strengthText: _passwordStrength.text,
+                strengthColor: _passwordStrength.color,
+                hasMinLength: _passwordStrength.hasMinLength,
+                hasLetterAndNumber: _passwordStrength.hasLetterAndNumber,
+                hasSpecialChar: _passwordStrength.hasSpecialChar,
+              ),
+            ),
         ],
       ),
     );

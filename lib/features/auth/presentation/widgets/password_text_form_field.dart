@@ -8,7 +8,6 @@ class PasswordTextFormField extends StatefulWidget {
   final bool enabled;
   final String? Function(String?)? validator;
   final bool showStrengthIndicator;
-  final VoidCallback? onSuggestPassword;
   final Function(PasswordStrength)? onStrengthChanged;
 
   const PasswordTextFormField({
@@ -18,7 +17,6 @@ class PasswordTextFormField extends StatefulWidget {
     this.enabled = true,
     this.validator,
     this.showStrengthIndicator = false,
-    this.onSuggestPassword,
     this.onStrengthChanged,
   }) : super(key: key);
 
@@ -87,22 +85,6 @@ class _PasswordTextFormFieldState extends State<PasswordTextFormField> {
           ),
           validator: widget.validator,
         ),
-        
-        if (widget.onSuggestPassword != null)
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: widget.onSuggestPassword,
-              icon: const Icon(Icons.auto_fix_high, size: 16),
-              label: const Text('Suggest Password'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.blue,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-              ),
-            ),
-          ),
           
         if (widget.showStrengthIndicator && widget.controller.text.isNotEmpty)
           Padding(
