@@ -5,8 +5,10 @@ import 'package:caption_learn/features/auth/presentation/screens/signup_screen.d
 import 'package:caption_learn/features/auth/presentation/widgets/auth_text_form_field.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/social_login_section.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/services.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -18,6 +20,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
+  CountryCode _selectedCountry = CountryCode.fromCountryCode('US');
 
   @override
   void dispose() {
@@ -25,32 +28,26 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _submitForm(BuildContext context) {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+  void _submitForm() {
+    if (!_formKey.currentState!.validate()) return;
 
     // Format phone with country code
-    final phoneNumber = "+98${_phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')}";
+    final phoneNumber = "${_selectedCountry.dialCode}${_phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')}";
     
-    context.read<AuthBloc>().add(
-      SendPhoneCodeEvent(
-        phoneNumber: phoneNumber,
-      ),
-    );
+    context.read<AuthBloc>().add(SendPhoneCodeEvent(phoneNumber: phoneNumber));
   }
 
-  Future<void> _signInWithGoogle(BuildContext context) async {
+  Future<void> _signInWithGoogle() async {
     // Check connectivity first
     final connectivityResult = await Connectivity().checkConnectivity();
-    final isConnected = connectivityResult.isNotEmpty && connectivityResult.first != ConnectivityResult.none;
+    final isConnected = connectivityResult.isNotEmpty && 
+                        connectivityResult.first != ConnectivityResult.none;
     
     if (!isConnected) {
-      // Show a snackbar if there's no connection
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No internet connection. Please check your network settings and try again.'),
+            content: Text('No internet connection. Please check your network settings.'),
             duration: Duration(seconds: 3),
           ),
         );
@@ -61,22 +58,15 @@ class _LoginScreenState extends State<LoginScreen> {
     context.read<AuthBloc>().add(SignInWithGoogleRequested());
   }
 
-  void _signInWithApple(BuildContext context) {
-    context.read<AuthBloc>().add(SignInWithAppleRequested());
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF8F9FA),
-              Color(0xFFE8EAF6),
-            ],
+            colors: [Color(0xFFF8F9FA), Color(0xFFE8EAF6)],
           ),
         ),
         child: BlocConsumer<AuthBloc, AuthState>(
@@ -89,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
                  state.message.contains('internet'))) {
               return NetworkErrorWidget(
                 message: state.message,
-                onRetry: () => _signInWithGoogle(context),
+                onRetry: _signInWithGoogle,
               );
             }
             
@@ -99,29 +89,8 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Center(
                 child: SingleChildScrollView(
                   child: Padding(
-                    padding: const EdgeInsets.all(48.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildHeader(),
-                        const SizedBox(height: 50),
-                        _buildLoginForm(context, isLoading),
-                        const SizedBox(height: 16),
-                        _buildForgotPassword(),
-                        const SizedBox(height: 24),
-                        _buildSignInButton(context, isLoading),
-                        const SizedBox(height: 24),
-                        SocialLoginSection(
-                          isLoading: isLoading,
-                          dividerText: 'Or continue with',
-                          onGoogleSignIn: () => _signInWithGoogle(context),
-                          onAppleSignIn: () => _signInWithApple(context),
-                        ),
-                        const SizedBox(height: 24),
-                        _buildSignUpOption(context),
-                      ],
-                    ),
+                    padding: const EdgeInsets.all(24.0),
+                    child: _buildContent(isLoading),
                   ),
                 ),
               ),
@@ -132,24 +101,29 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _authStateListener(BuildContext context, AuthState state) {
-    if (state is AuthenticationFailure) {
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(state.message)),
-      );
-    } else if (state is PhoneVerificationSent) {
-      // Navigate to verification screen
-      // Navigator.push(
-      //   context,
-      //   MaterialPageRoute(
-      //     builder: (context) => PhoneVerificationScreen(
-      //       verificationId: state.verificationId,
-      //       phoneNumber: state.phoneNumber,
-      //     ),
-      //   ),
-      // );
-    }
+  Widget _buildContent(bool isLoading) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildHeader(),
+        const SizedBox(height: 40),
+        _buildLoginForm(isLoading),
+        const SizedBox(height: 16),
+        _buildForgotPassword(),
+        const SizedBox(height: 24),
+        _buildSignInButton(isLoading),
+        const SizedBox(height: 24),
+        SocialLoginSection(
+          isLoading: isLoading,
+          dividerText: 'Or continue with',
+          onGoogleSignIn: _signInWithGoogle,
+          onAppleSignIn: () => context.read<AuthBloc>().add(SignInWithAppleRequested()),
+        ),
+        const SizedBox(height: 24),
+        _buildSignUpOption(),
+      ],
+    );
   }
 
   Widget _buildHeader() {
@@ -167,25 +141,57 @@ class _LoginScreenState extends State<LoginScreen> {
         Text(
           'Welcome back you\'ve been missed!',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            color: Color(0xFF666666),
-          ),
+          style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
         ),
       ],
     );
   }
 
-  Widget _buildLoginForm(BuildContext context, bool isLoading) {
+  Widget _buildLoginForm(bool isLoading) {
     return Form(
       key: _formKey,
-      child: AuthTextFormField(
-        controller: _phoneController,
-        hintText: 'Phone Number',
-        keyboardType: TextInputType.phone,
-        enabled: !isLoading,
-        prefix: '+98',
-        validator: AuthValidators.validatePhone,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                CountryCodePicker(
+                  onChanged: (CountryCode code) {
+                    setState(() => _selectedCountry = code);
+                  },
+                  initialSelection: 'US',
+                  favorite: const ['US', 'GB', 'IR', 'CA', 'DE', 'FR', 'IN'],
+                  showCountryOnly: false,
+                  showOnlyCountryWhenClosed: false,
+                  alignLeft: false,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  showFlag: true,
+                  flagWidth: 24,
+                ),
+                SizedBox(width: 4),
+                Expanded(
+                  child: TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    enabled: !isLoading,
+                    decoration: InputDecoration(
+                      hintText: 'Phone Number',
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    validator: AuthValidators.validatePhone,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -207,17 +213,14 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildSignInButton(BuildContext context, bool isLoading) {
+  Widget _buildSignInButton(bool isLoading) {
     return ElevatedButton(
-      onPressed: isLoading ? null : () => _submitForm(context),
+      onPressed: isLoading ? null : _submitForm,
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFFE57373),
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         minimumSize: const Size(double.infinity, 56),
       ),
       child: isLoading
@@ -231,44 +234,42 @@ class _LoginScreenState extends State<LoginScreen> {
             )
           : const Text(
               'Continue',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
     );
   }
 
-  Widget _buildSignUpOption(BuildContext context) {
+  Widget _buildSignUpOption() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(
-          'Not a member?',
-          style: TextStyle(
-            color: Colors.grey.shade600,
-          ),
-        ),
+        Text('Not a member?', style: TextStyle(color: Colors.grey.shade600)),
         TextButton(
           onPressed: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const SignupScreen(),
-              ),
+              MaterialPageRoute(builder: (context) => const SignupScreen()),
             );
           },
           style: TextButton.styleFrom(
             foregroundColor: Colors.blue,
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
-          child: const Text(
-            'Register now',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+          child: const Text('Register now', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     );
+  }
+
+  void _authStateListener(BuildContext context, AuthState state) {
+    if (state is AuthenticationFailure) {
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(state.message)),
+      );
+    } else if (state is PhoneVerificationSent) {
+      // Navigate to verification screen would go here
+      // Navigator.push(...);
+    }
   }
 }

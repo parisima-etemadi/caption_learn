@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AuthTextFormField extends StatelessWidget {
   final TextEditingController controller;
@@ -8,6 +9,7 @@ class AuthTextFormField extends StatelessWidget {
   final String? prefix;
   final bool enabled;
   final String? Function(String?)? validator;
+  final List<TextInputFormatter>? inputFormatters;
 
   const AuthTextFormField({
     Key? key,
@@ -18,6 +20,7 @@ class AuthTextFormField extends StatelessWidget {
     this.prefix,
     this.enabled = true,
     this.validator,
+    this.inputFormatters,
   }) : super(key: key);
 
   @override
@@ -26,6 +29,9 @@ class AuthTextFormField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       enabled: enabled,
+      inputFormatters: inputFormatters ?? 
+          (keyboardType == TextInputType.phone ? 
+              [FilteringTextInputFormatter.digitsOnly] : null),
       decoration: InputDecoration(
         hintText: hintText,
         filled: true,
@@ -50,6 +56,7 @@ class AuthTextFormField extends StatelessWidget {
         prefixIcon: prefix != null
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                alignment: Alignment.center,
                 child: Text(
                   prefix!,
                   style: const TextStyle(fontSize: 16),
