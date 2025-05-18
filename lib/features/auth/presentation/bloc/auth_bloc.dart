@@ -97,32 +97,56 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
   
-  // Updated method name and parameter type
+  // Updated method to properly handle async callbacks
   Future<void> _onSendPhoneCode(
     SendPhoneCodeEvent event,
     Emitter<AuthState> emit,
   ) async {
     emit(Authenticating());
+    
     try {
+      // Create completer to handle async callbacks properly
+      final completer = Completer<void>();
+      
       await _authService.verifyPhoneNumber(
         phoneNumber: event.phoneNumber,
         onCodeSent: (String verificationId) {
-          emit(PhoneVerificationSent(verificationId, event.phoneNumber));
+          if (!emit.isDone) {
+            emit(PhoneVerificationSent(verificationId, event.phoneNumber));
+          }
+          if (!completer.isCompleted) {
+            completer.complete();
+          }
         },
         onVerificationFailed: (FirebaseAuthException e) {
-          emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
+          if (!emit.isDone) {
+            emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
+          }
+          if (!completer.isCompleted) {
+            completer.complete();
+          }
         },
         onVerificationCompleted: (PhoneAuthCredential credential) async {
           try {
             await _authService.signInWithCredential(credential);
             // AuthStateChanged event will handle the state update
           } catch (e) {
-            emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
+            if (!emit.isDone) {
+              emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
+            }
+          }
+          if (!completer.isCompleted) {
+            completer.complete();
           }
         },
       );
+      
+      // Wait for one of the callbacks to complete
+      await completer.future;
     } catch (e) {
-      emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
+      if (!emit.isDone) {
+        emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
+      }
     }
   }
 

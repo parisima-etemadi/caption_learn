@@ -7,7 +7,7 @@ class AuthValidators {
     
     // Simple phone validation
     final cleanPhone = value.replaceAll(RegExp(r'[^0-9]'), '');
-    if (cleanPhone.length < 10) {
+    if (cleanPhone.length < 8) {
       return 'Please enter a valid phone number';
     }
     return null;
