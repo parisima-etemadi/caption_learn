@@ -1,6 +1,7 @@
 import 'package:caption_learn/features/auth/domain/utils/password_utils.dart';
 import 'package:caption_learn/features/auth/domain/validator/auth_validators.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:caption_learn/features/auth/presentation/screens/phone_verification_screen.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/auth_text_form_field.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/password_text_form_field.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/password_strength_indicator.dart';
@@ -152,6 +153,14 @@ class _SignupScreenState extends State<SignupScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   showFlag: true,
                   flagWidth: 24,
+                  textStyle: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                  ),
+                  dialogTextStyle: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                  ),
                 ),
                 SizedBox(width: 4),
                 Expanded(
@@ -159,8 +168,16 @@ class _SignupScreenState extends State<SignupScreen> {
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     enabled: !isLoading,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Phone Number',
+                      hintStyle: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                      ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     ),
@@ -288,7 +305,16 @@ class _SignupScreenState extends State<SignupScreen> {
         SnackBar(content: Text(message), backgroundColor: Colors.red),
       );
     } else if (state is PhoneVerificationSent) {
-      // Navigator to verification screen would go here
+      // Navigate to verification screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PhoneVerificationScreen(
+            phoneNumber: state.phoneNumber,
+            verificationId: state.verificationId,
+          ),
+        ),
+      );
     } else if (state is Authenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

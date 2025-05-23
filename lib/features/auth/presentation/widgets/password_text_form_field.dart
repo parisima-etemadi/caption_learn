@@ -61,8 +61,16 @@ class _PasswordTextFormFieldState extends State<PasswordTextFormField> {
           controller: widget.controller,
           obscureText: _obscurePassword,
           enabled: widget.enabled,
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+          ),
           decoration: InputDecoration(
             hintText: widget.hintText,
+            hintStyle: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 16,
+            ),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(
@@ -106,7 +114,7 @@ class _PasswordTextFormFieldState extends State<PasswordTextFormField> {
     return IconButton(
       icon: Icon(
         _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-        color: Colors.grey,
+        color: Colors.grey.shade600,
       ),
       onPressed: () {
         setState(() {

@@ -1,6 +1,7 @@
 import 'package:caption_learn/core/widgets/network_error_widget.dart';
 import 'package:caption_learn/features/auth/domain/validator/auth_validators.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:caption_learn/features/auth/presentation/screens/phone_verification_screen.dart';
 import 'package:caption_learn/features/auth/presentation/screens/signup_screen.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/auth_text_form_field.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/social_login_section.dart';
@@ -172,6 +173,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   showFlag: true,
                   flagWidth: 24,
+                  textStyle: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                  ),
+                  dialogTextStyle: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                  ),
                 ),
                 SizedBox(width: 4),
                 Expanded(
@@ -179,8 +188,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     enabled: !isLoading,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Phone Number',
+                      hintStyle: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                      ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     ),
@@ -265,11 +282,22 @@ class _LoginScreenState extends State<LoginScreen> {
     if (state is AuthenticationFailure) {
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(state.message)),
+        SnackBar(
+          content: Text(state.message),
+          backgroundColor: Colors.red,
+        ),
       );
     } else if (state is PhoneVerificationSent) {
-      // Navigate to verification screen would go here
-      // Navigator.push(...);
+      // Navigate to verification screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PhoneVerificationScreen(
+            phoneNumber: state.phoneNumber,
+            verificationId: state.verificationId,
+          ),
+        ),
+      );
     }
   }
 }

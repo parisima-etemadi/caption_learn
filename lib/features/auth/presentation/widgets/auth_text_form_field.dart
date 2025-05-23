@@ -29,11 +29,19 @@ class AuthTextFormField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       enabled: enabled,
+      style: const TextStyle(
+        color: Colors.black,
+        fontSize: 16,
+      ),
       inputFormatters: inputFormatters ?? 
           (keyboardType == TextInputType.phone ? 
               [FilteringTextInputFormatter.digitsOnly] : null),
       decoration: InputDecoration(
         hintText: hintText,
+        hintStyle: TextStyle(
+          color: Colors.grey.shade600,
+          fontSize: 16,
+        ),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
@@ -59,7 +67,10 @@ class AuthTextFormField extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   prefix!,
-                  style: const TextStyle(fontSize: 16),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                  ),
                 ),
               )
             : null,
