@@ -1,2 +1,6 @@
-#include "Pods/Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"
+// Application-specific build settings.
+#include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"
 #include "Generated.xcconfig"
+
+FLUTTER_BUILD_MODE=profile
+// Only override parameters FlutterSetBuildMode defines. Other parameters are defined in Generated.xcconfig.

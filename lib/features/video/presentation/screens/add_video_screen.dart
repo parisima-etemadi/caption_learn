@@ -47,7 +47,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
 
       // Process the video URL to get details and subtitles
       final videoContent = await _videoService.processVideoUrl(url);
-      
+
       // Save the video using StorageService which handles both Firebase and Hive
       await _storageService.saveVideo(videoContent);
 
@@ -127,12 +127,10 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
               if (value == null || value.isEmpty) {
                 return 'Please enter a URL';
               }
-
-              final url = value.toLowerCase();
-              if (!url.contains('youtube.com') && !url.contains('youtu.be')) {
-                return 'Only YouTube URLs are supported';
+              if (!YoutubeUtils.isYoutubeUrl(value)) {
+                // Use the corrected utility method
+                return 'Please enter a valid YouTube URL';
               }
-
               return null;
             },
           ),
