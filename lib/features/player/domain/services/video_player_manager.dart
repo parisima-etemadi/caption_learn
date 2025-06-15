@@ -20,6 +20,7 @@ class VideoPlayerManager {
   final Logger _logger = const Logger('VideoPlayerManager');
   final StorageService _storageService = StorageService();
 
+
   VideoPlayerController? controller; // For future local video support
   YoutubePlayerController? youtubeController;
   VideoContent? videoContent;
@@ -29,7 +30,8 @@ class VideoPlayerManager {
   bool isYoutubePlayerReady = false;
   int currentSubtitleIndex = -1;
   Timer? positionTimer;
-
+  bool _isDisposed = false;
+  
   VideoPlayerManager({
     required this.videoId,
     required this.onSubtitleIndexChanged,
@@ -99,35 +101,50 @@ class VideoPlayerManager {
     }
   }
 
-  /// Initialize the YouTube video player
-  Future<void> initializeYouTubeVideo(BuildContext context) async {
-    final ytVideoId = YoutubePlayer.convertUrlToId(videoContent!.sourceUrl);
-    if (ytVideoId != null) {
-      isYoutubePlayerReady = false;
 
-      youtubeController = YoutubePlayerController(
-        initialVideoId: ytVideoId,
-        flags: const YoutubePlayerFlags(
-          autoPlay: false,
-          mute: false,
-          disableDragSeek: false,
-          loop: false,
-          isLive: false,
-          forceHD: false,
-          enableCaption: true,
-        ),
-      );
+// Update the initializeYouTubeVideo method:
+Future<void> initializeYouTubeVideo(BuildContext context) async {
+  if (_isDisposed) return;
+  
+  final ytVideoId = YoutubePlayer.convertUrlToId(videoContent!.sourceUrl);
+  if (ytVideoId != null) {
+    // Dispose existing controller if any
+    youtubeController?.dispose();
+    
+    isYoutubePlayerReady = false;
 
-      isInitialized = true;
-      onInitialized();
+    youtubeController = YoutubePlayerController(
+      initialVideoId: ytVideoId,
+      flags: const YoutubePlayerFlags(
+        autoPlay: false,
+        mute: false,
+        disableDragSeek: false,
+        loop: false,
+        isLive: false,
+        forceHD: false,
+        enableCaption: true,
+      ),
+    );
 
-      if (videoContent!.subtitles.isEmpty) {
-        _logger.i('No subtitles found for this video');
-      }
-    } else {
-      _showError(context, 'Invalid YouTube URL');
+    isInitialized = true;
+    onInitialized();
+
+    if (videoContent!.subtitles.isEmpty) {
+      _logger.i('No subtitles found for this video');
     }
+  } else {
+    _showError(context, 'Invalid YouTube URL');
   }
+}
+
+// Update the dispose method:
+void dispose() {
+  _isDisposed = true;
+  positionTimer?.cancel();
+  youtubeController?.dispose();
+  controller?.dispose();
+  _logger.d('Disposed player resources');
+}
 
   /// Validate and fix any subtitle timing issues
   void validateAndFixSubtitles() {
@@ -218,13 +235,7 @@ class VideoPlayerManager {
     }
   }
 
-  /// Clean up resources when disposed
-  void dispose() {
-    controller?.dispose();
-    youtubeController?.dispose();
-    positionTimer?.cancel();
-    _logger.d('Disposed player resources');
-  }
+
 
   /// Create a vocabulary item from a selected word
   VocabularyItem createVocabularyItem(String word) {

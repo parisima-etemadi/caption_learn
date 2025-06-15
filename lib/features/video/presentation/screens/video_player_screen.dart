@@ -20,13 +20,18 @@ class VideoPlayerScreen extends StatefulWidget {
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
-class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKeepAliveClientMixin {
   late final VideoPlayerManager _playerManager;
   final TextEditingController _definitionController = TextEditingController();
   final TextEditingController _exampleController = TextEditingController();
   bool _showControls = true;
   VocabularyItem? _selectedWord;
   int _activeNavIndex = 2;
+  
+  // Add this to prevent recreation
+  @override
+  bool get wantKeepAlive => true;
+  
   @override
   void initState() {
     super.initState();
@@ -44,7 +49,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       },
     );
     
-    _playerManager.loadVideo(context);
+    // Use post frame callback to ensure context is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _playerManager.loadVideo(context);
+    });
   }
   
   @override
@@ -119,6 +127,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(_playerManager.videoContent?.title ?? 'Video Player'),
@@ -146,47 +156,56 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 _buildVideoPlayerSection(),
               ],
             ),
-            bottomNavigationBar: CustomBottomNavigation(
-      currentIndex: _activeNavIndex,
-      onTap: (index) {
-        setState(() {
-          _activeNavIndex = index;
-        });
-      },    
-         ),
+      bottomNavigationBar: CustomBottomNavigation(
+        currentIndex: _activeNavIndex,
+        onTap: (index) {
+          setState(() {
+            _activeNavIndex = index;
+          });
+        },    
+      ),
     );
   }
   
   Widget _buildVideoPlayerSection() {
+    // Ensure we have a unique key for the player
+    final playerKey = ValueKey('youtube_player_${widget.videoId}');
+    
     return Stack(
       children: [
         Container(
           color: Colors.black,
           width: double.infinity,
-          child:
-            YouTubePlayerWidget(
-                controller: _playerManager.youtubeController,
-                isInitialized: _playerManager.isInitialized,
-                onReady: () {
-                  setState(() {
-                    _playerManager.isYoutubePlayerReady = true;
-                    _playerManager.youtubeController?.play();
-                  });
-                  _playerManager.setupYouTubeListener();
-                },
-              )
-              
+          child: _playerManager.isInitialized && _playerManager.youtubeController != null
+              ? YouTubePlayerWidget(
+                  key: playerKey, // Add unique key
+                  controller: _playerManager.youtubeController,
+                  isInitialized: _playerManager.isInitialized,
+                  onReady: () {
+                    if (!_playerManager.isYoutubePlayerReady) {
+                      setState(() {
+                        _playerManager.isYoutubePlayerReady = true;
+                        _playerManager.youtubeController?.play();
+                      });
+                      _playerManager.setupYouTubeListener();
+                    }
+                  },
+                )
+              : const Center(
+                  child: Text(
+                    'Video player not available',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
         ),
         
         if (_playerManager.videoContent != null)
-        const Positioned(
-          top: 16,
-          left: 16,
-          child: LearnedWordsIndicator(),
-        ),
+          const Positioned(
+            top: 16,
+            left: 16,
+            child: LearnedWordsIndicator(),
+          ),
       ],
     );
   }
-  
-  
-} 
+}
