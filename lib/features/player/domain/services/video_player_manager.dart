@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../services/storage_service.dart';
 import '../../../vocabulary/models/vocabulary_item.dart';
 import '../../../video/data/models/video_content.dart';
 import '../../../video/domain/enum/video_source.dart';
@@ -17,6 +18,7 @@ class VideoPlayerManager {
   final VoidCallback onLoadingChanged;
   final VoidCallback onInitialized;
   final Logger _logger = const Logger('VideoPlayerManager');
+  final StorageService _storageService = StorageService();
 
   VideoPlayerController? controller; // For future local video support
   YoutubePlayerController? youtubeController;
@@ -41,16 +43,19 @@ class VideoPlayerManager {
     onLoadingChanged();
 
     try {
-      // Mock delay to simulate loading
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Mock video data based on videoId
-      // In a real app, this would come from a repository
+      // Load video data from storage
+      _logger.i('Loading video with ID: $videoId');
+      videoContent = _storageService.getVideoById(videoId);
 
       if (videoContent == null) {
-        _showError(context, 'Video not found');
+        // Get all videos to debug
+        final allVideos = _storageService.getVideos();
+        _logger.e('Video with ID $videoId not found. Available videos: ${allVideos.map((v) => '${v.id}: ${v.title}').join(', ')}');
+        _showError(context, 'Video not found (ID: $videoId)');
         return;
       }
+
+      _logger.i('Successfully loaded video: ${videoContent!.title}');
 
       isYoutubeVideo = videoContent!.source == VideoSource.youtube;
 
@@ -233,19 +238,22 @@ class VideoPlayerManager {
     );
   }
 
-  /// Mock vocabulary item saving (no actual storage)
+  /// Save vocabulary item to storage
   Future<void> saveVocabularyItem(
     VocabularyItem item,
     String definition,
     String example,
   ) async {
-    // Create updated item (but don't actually save it)
-    final updatedWord = item.copyWith(definition: definition, example: example);
+    try {
+      // Create updated item with definition and example
+      final updatedWord = item.copyWith(definition: definition, example: example);
 
-    // Log the action that would have occurred
-    _logger.i('Would save vocabulary item (mock): ${updatedWord.word}');
-
-    // Add small delay to simulate saving
-    await Future.delayed(const Duration(milliseconds: 300));
+      // Save to storage
+      await _storageService.saveVocabularyItem(updatedWord);
+      _logger.i('Successfully saved vocabulary item: ${updatedWord.word}');
+    } catch (e) {
+      _logger.e('Failed to save vocabulary item', e);
+      throw Exception('Failed to save vocabulary item: $e');
+    }
   }
 }
