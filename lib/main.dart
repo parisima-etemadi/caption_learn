@@ -108,7 +108,7 @@ class CaptionLearnApp extends StatelessWidget {
           if (state is Authenticated) {
             return const HomeScreen();
           }
-          return const LoginScreen();
+          return const HomeScreen();
         },
       ),
     );

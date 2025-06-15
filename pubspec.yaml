@@ -39,7 +39,7 @@ dependencies:
   video_player: ^2.9.5
   
   # For YouTube video playback and extraction
-  youtube_explode_dart: ^2.4.0
+  youtube_explode_dart: ^2.4.2
   
   # YouTube player for Flutter
   youtube_player_flutter: ^9.1.1
