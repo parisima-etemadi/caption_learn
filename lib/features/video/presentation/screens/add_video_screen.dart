@@ -28,53 +28,88 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
     super.dispose();
   }
 
-  Future<void> _processVideo() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
+Future<void> _processVideo() async {
+  if (!_formKey.currentState!.validate()) {
+    return;
+  }
+
+  setState(() {
+    _isProcessing = true;
+  });
+
+  try {
+    final url = _urlController.text.trim();
+
+    // Check if URL is a YouTube URL
+    if (!YoutubeUtils.isYoutubeUrl(url)) {
+      throw Exception('Only YouTube URLs are supported');
     }
 
-    setState(() {
-      _isProcessing = true;
-    });
+    // Process the video URL to get details and subtitles
+    final videoContent = await _videoService.processVideoUrl(url);
 
-    try {
-      final url = _urlController.text.trim();
-
-      // Check if URL is a YouTube URL
-      if (!YoutubeUtils.isYoutubeUrl(url)) {
-        throw Exception('Only YouTube URLs are supported');
-      }
-
-      // Process the video URL to get details and subtitles
-      final videoContent = await _videoService.processVideoUrl(url);
-
-      // Save the video using StorageService which handles both Firebase and Hive
-      await _storageService.saveVideo(videoContent);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Video added: ${videoContent.title}'),
-            backgroundColor: Colors.green,
+    // Check if subtitles were found
+    if (videoContent.subtitles.isEmpty && mounted) {
+      // Show a warning dialog
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('No Subtitles Found'),
+          content: const Text(
+            'This video doesn\'t have subtitles available. You can still add it, but you won\'t be able to use the subtitle features.\n\nDo you want to continue?',
           ),
-        );
-        Navigator.pop(context, true); // Return success
-      }
-    } catch (e) {
-      _logger.e('Error processing video', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+
+      if (proceed != true) {
         setState(() {
           _isProcessing = false;
         });
+        return;
       }
     }
+
+    // Save the video using StorageService which handles both Firebase and Hive
+    await _storageService.saveVideo(videoContent);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            videoContent.subtitles.isEmpty 
+              ? 'Video added: ${videoContent.title} (No subtitles available)'
+              : 'Video added: ${videoContent.title}',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context, true); // Return success
+    }
+  } catch (e) {
+    _logger.e('Error processing video', e);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isProcessing = false;
+      });
+    }
   }
+}
 
   @override
   Widget build(BuildContext context) {

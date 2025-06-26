@@ -1,4 +1,6 @@
 // lib/features/videos/domain/services/video_service.dart
+import 'dart:async';
+
 import 'package:caption_learn/features/video/data/models/video_content.dart';
 import 'package:uuid/uuid.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
@@ -73,27 +75,41 @@ class VideoService {
     }
   }
 
-  /// Fetches subtitles from a YouTube video
-  Future<List<Subtitle>> _getYouTubeSubtitles(String videoId) async {
-    final subtitles = <Subtitle>[];
+ /// Fetches subtitles from a YouTube video
+Future<List<Subtitle>> _getYouTubeSubtitles(String videoId) async {
+  final subtitles = <Subtitle>[];
 
-    try {
-      // Get closed captions manifest
-      final manifest = await _youtubeExplode.videos.closedCaptions.getManifest(
-        videoId,
+  try {
+    // Get closed captions manifest
+    final manifest = await _youtubeExplode.videos.closedCaptions.getManifest(
+      videoId,
+      // Add timeout to prevent hanging
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {
+        _logger.w('Subtitle fetching timed out for video: $videoId');
+        throw TimeoutException('Subtitle fetching timed out');
+      },
+    );
+
+    // Get the first available track
+    if (manifest.tracks.isNotEmpty) {
+      // Try to find English track first
+      final track = manifest.tracks.firstWhere(
+        (t) => t.language.code.toLowerCase() == 'en',
+        orElse: () => manifest.tracks.first,
       );
 
-      // Get the first available track
-      if (manifest.tracks.isNotEmpty) {
-        // Try to find English track first
-        final track = manifest.tracks.firstWhere(
-          (t) => t.language.code.toLowerCase() == 'en',
-          orElse: () => manifest.tracks.first,
-        );
-
-        // Get the actual closed captions
+      try {
+        // Get the actual closed captions with timeout
         final closedCaptions = await _youtubeExplode.videos.closedCaptions.get(
           track,
+        ).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            _logger.w('Caption loading timed out for track: ${track.language.name}');
+            throw TimeoutException('Caption loading timed out');
+          },
         );
 
         // Convert to our app's Subtitle format
@@ -106,13 +122,24 @@ class VideoService {
             ),
           );
         }
+        
+        _logger.i('Successfully fetched ${subtitles.length} subtitles');
+      } catch (e) {
+        _logger.e('Error fetching captions for track: ${track.language.name}', e);
       }
-    } catch (e) {
+    } else {
+      _logger.i('No subtitle tracks available for video: $videoId');
+    }
+  } catch (e) {
+    if (e is TimeoutException) {
+      _logger.w('Subtitle fetching timed out: ${e.message}');
+    } else {
       _logger.e('Error fetching YouTube subtitles', e);
     }
-
-    return subtitles;
   }
+
+  return subtitles;
+}
 
   // Cleanup resources
   void dispose() {
