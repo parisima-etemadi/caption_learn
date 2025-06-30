@@ -11,4 +11,10 @@ class AppConstants {
   // UI constants
   static const double defaultPadding = 16.0;
   static const double smallPadding = 8.0;
+  
+  // Auth configuration
+  static const String googleClientId = '1028174393649-3cu65svme7gqnjb847fkeid9te7jrlgv.apps.googleusercontent.com';
+  
+  // Timeouts
+  static const Duration phoneVerificationTimeout = Duration(seconds: 60);
 }

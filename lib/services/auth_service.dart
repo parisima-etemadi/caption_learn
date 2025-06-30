@@ -1,12 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import '../core/utils/logger.dart';
+import '../core/constants/app_constants.dart';
+import '../core/services/base_service.dart';
 
-class AuthService {
+class AuthService extends BaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(clientId: '1028174393649-3cu65svme7gqnjb847fkeid9te7jrlgv.apps.googleusercontent.com');
-  final Logger _logger = const Logger('AuthService');
+  final GoogleSignIn _googleSignIn = GoogleSignIn(clientId: AppConstants.googleClientId);
+  
+  @override
+  String get serviceName => 'AuthService';
   
   // Store verification ID for phone auth
   String? _verificationId;
@@ -28,28 +31,28 @@ class AuthService {
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) {
-          _logger.i('Phone verification completed automatically');
+          logger.i('Phone verification completed automatically');
           if (onVerificationCompleted != null) {
             onVerificationCompleted(credential);
           }
         },
         verificationFailed: (FirebaseAuthException e) {
-          _logger.e('Phone verification failed', e);
+          logger.e('Phone verification failed', e);
           onVerificationFailed(e);
         },
         codeSent: (String verificationId, int? resendToken) {
-          _logger.i('Verification code sent to $phoneNumber');
+          logger.i('Verification code sent to $phoneNumber');
           _verificationId = verificationId;
           onCodeSent(verificationId);
         },
         codeAutoRetrievalTimeout: (String verificationId) {
-          _logger.i('Auto retrieval timeout');
+          logger.i('Auto retrieval timeout');
           _verificationId = verificationId;
         },
-        timeout: const Duration(seconds: 60),
+        timeout: AppConstants.phoneVerificationTimeout,
       );
     } catch (e) {
-      _logger.e('Error sending verification code', e);
+      logger.e('Error sending verification code', e);
       rethrow;
     }
   }
@@ -70,10 +73,10 @@ class AuthService {
       );
       
       final userCredential = await _auth.signInWithCredential(credential);
-      _logger.i('Signed in with phone: ${userCredential.user?.uid}');
+      logger.i('Signed in with phone: ${userCredential.user?.uid}');
       return userCredential;
     } catch (e) {
-      _logger.e('Error signing in with phone code', e);
+      logger.e('Error signing in with phone code', e);
       rethrow;
     }
   }
@@ -82,10 +85,10 @@ class AuthService {
   Future<UserCredential> signInWithCredential(AuthCredential credential) async {
     try {
       final userCredential = await _auth.signInWithCredential(credential);
-      _logger.i('Signed in with credential: ${userCredential.user?.uid}');
+      logger.i('Signed in with credential: ${userCredential.user?.uid}');
       return userCredential;
     } catch (e) {
-      _logger.e('Error signing in with credential', e);
+      logger.e('Error signing in with credential', e);
       rethrow;
     }
   }
@@ -103,10 +106,10 @@ class AuthService {
       );
       
       final userCredential = await _auth.signInWithCredential(credential);
-      _logger.i('Signed in with Google: ${userCredential.user?.uid}');
+      logger.i('Signed in with Google: ${userCredential.user?.uid}');
       return userCredential;
     } catch (e) {
-      _logger.e('Error signing in with Google', e);
+      logger.e('Error signing in with Google', e);
       rethrow;
     }
   }
@@ -127,10 +130,10 @@ class AuthService {
       );
       
       final userCredential = await _auth.signInWithCredential(oauthCredential);
-      _logger.i('Signed in with Apple: ${userCredential.user?.uid}');
+      logger.i('Signed in with Apple: ${userCredential.user?.uid}');
       return userCredential;
     } catch (e) {
-      _logger.e('Error signing in with Apple', e);
+      logger.e('Error signing in with Apple', e);
       rethrow;
     }
   }
@@ -139,9 +142,9 @@ class AuthService {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
-      _logger.i('User signed out');
+      logger.i('User signed out');
     } catch (e) {
-      _logger.e('Error signing out', e);
+      logger.e('Error signing out', e);
       rethrow;
     }
   }
