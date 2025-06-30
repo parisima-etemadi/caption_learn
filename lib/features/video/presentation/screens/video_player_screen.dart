@@ -153,7 +153,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _buildVideoPlayerSection(),
+                Expanded(
+                  child: _buildVideoPlayerSection(),
+                ),
               ],
             ),
       bottomNavigationBar: CustomBottomNavigation(

@@ -114,13 +114,18 @@ class CustomBottomNavigation extends StatelessWidget {
               color: isActive ? Theme.of(context).primaryColor : Colors.grey,
               size: 24,
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: isActive ? Theme.of(context).primaryColor : Colors.grey,
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            const SizedBox(height: 2),
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isActive ? Theme.of(context).primaryColor : Colors.grey,
+                  fontSize: 10,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
             ),
           ],
