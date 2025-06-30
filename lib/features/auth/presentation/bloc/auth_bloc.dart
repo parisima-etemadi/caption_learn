@@ -1,175 +1,115 @@
-// lib/features/auth/presentation/bloc/auth_bloc.dart
 import 'dart:async';
-import 'package:equatable/equatable.dart';
-import 'package:bloc/bloc.dart';
-import 'package:caption_learn/core/utils/error_handler.dart';
-import 'package:caption_learn/services/auth_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:meta/meta.dart';
+import '../../../../core/state/auth_state_manager.dart';
+import '../../../../core/exceptions/app_exceptions.dart';
 
 part 'auth_event.dart';
 part 'auth_state.dart';
 
+/// Simplified auth bloc using AuthStateManager
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  final AuthService _authService;
-  final ErrorHandler _errorHandler = ErrorHandler('AuthBloc');
-  late StreamSubscription<User?> _authStateSubscription;
+  final AuthStateManager _authManager = AuthStateManager();
+  late StreamSubscription<AuthenticationState> _authStateSubscription;
+  late StreamSubscription<bool> _loadingSubscription;
 
-  AuthBloc({required AuthService authService})
-      : _authService = authService,
-        super(AuthInitial()) {
+  AuthBloc() : super(const AuthState.initial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
-    on<SignInWithGoogleRequested>(_onSignInWithGoogleRequested);
-    on<SignInWithAppleRequested>(_onSignInWithAppleRequested);
-    on<SignOutRequested>(_onSignOutRequested);
-    on<AuthStateChanged>(_onAuthStateChanged);
-    // Register phone auth event handlers with new names
+    on<SignInWithGoogleRequested>(_onSignInWithGoogle);
+    on<SignInWithAppleRequested>(_onSignInWithApple);
+    on<SignOutRequested>(_onSignOut);
+    on<_AuthStateChanged>(_onAuthStateChanged);
+    on<_LoadingStateChanged>(_onLoadingStateChanged);
     on<SendPhoneCodeEvent>(_onSendPhoneCode);
     on<VerifyPhoneCodeEvent>(_onVerifyPhoneCode);
 
-    // Listen to authentication state changes
-    _authStateSubscription = _authService.authStateChanges.listen(
-      (user) => add(AuthStateChanged(user)),
+    // Listen to auth state changes
+    _authStateSubscription = _authManager.authState.listen(
+      (authState) => add(_AuthStateChanged(authState)),
+    );
+    
+    // Listen to loading state changes
+    _loadingSubscription = _authManager.isLoading.listen(
+      (isLoading) => add(_LoadingStateChanged(isLoading)),
     );
   }
 
-  Future<void> _onAuthCheckRequested(
-    AuthCheckRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(AuthCheckingStatus());
-    final user = _authService.currentUser;
-    if (user != null) {
-      emit(Authenticated(user));
+  void _onAuthCheckRequested(AuthCheckRequested event, Emitter<AuthState> emit) {
+    // AuthStateManager handles this automatically
+  }
+
+  Future<void> _onSignInWithGoogle(SignInWithGoogleRequested event, Emitter<AuthState> emit) async {
+    try {
+      await _authManager.signInWithGoogle();
+    } on AuthException catch (e) {
+      emit(AuthState.failure(e.message));
+    }
+  }
+
+  Future<void> _onSignInWithApple(SignInWithAppleRequested event, Emitter<AuthState> emit) async {
+    try {
+      await _authManager.signInWithApple();
+    } on AuthException catch (e) {
+      emit(AuthState.failure(e.message));
+    }
+  }
+
+  Future<void> _onSignOut(SignOutRequested event, Emitter<AuthState> emit) async {
+    try {
+      await _authManager.signOut();
+    } on AuthException catch (e) {
+      emit(AuthState.failure(e.message));
+    }
+  }
+
+  void _onAuthStateChanged(_AuthStateChanged event, Emitter<AuthState> emit) {
+    if (event.authState.isAuthenticated) {
+      emit(AuthState.authenticated(event.authState.user!));
     } else {
-      emit(Unauthenticated());
-    }
-  }
-
-  Future<void> _onSignInWithGoogleRequested(
-    SignInWithGoogleRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(Authenticating());
-    try {
-      await _authService.signInWithGoogle();
-      // The AuthStateChanged event will handle the state update
-    } catch (e) {
-      emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
-    }
-  }
-
-  Future<void> _onSignInWithAppleRequested(
-    SignInWithAppleRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(Authenticating());
-    try {
-      await _authService.signInWithApple();
-      // The AuthStateChanged event will handle the state update
-    } catch (e) {
-      emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
-    }
-  }
-
-  Future<void> _onSignOutRequested(
-    SignOutRequested event,
-    Emitter<AuthState> emit,
-  ) async {
-    try {
-      await _authService.signOut();
-      // The AuthStateChanged event will handle the state update
-    } catch (e) {
-      // Even if sign out fails, we should show the user as unauthenticated
-      emit(Unauthenticated());
-    }
-  }
-
-  void _onAuthStateChanged(
-    AuthStateChanged event,
-    Emitter<AuthState> emit,
-  ) {
-    if (event.user != null) {
-      emit(Authenticated(event.user!));
-    } else {
-      emit(Unauthenticated());
+      emit(const AuthState.unauthenticated());
     }
   }
   
-  // Updated method to properly handle async callbacks
-  Future<void> _onSendPhoneCode(
-    SendPhoneCodeEvent event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(Authenticating());
-    
-    try {
-      // Create completer to handle async callbacks properly
-      final completer = Completer<void>();
-      
-      await _authService.verifyPhoneNumber(
-        phoneNumber: event.phoneNumber,
-        onCodeSent: (String verificationId) {
-          if (!emit.isDone) {
-            emit(PhoneVerificationSent(verificationId, event.phoneNumber));
-          }
-          if (!completer.isCompleted) {
-            completer.complete();
-          }
-        },
-        onVerificationFailed: (FirebaseAuthException e) {
-          if (!emit.isDone) {
-            emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
-          }
-          if (!completer.isCompleted) {
-            completer.complete();
-          }
-        },
-        onVerificationCompleted: (PhoneAuthCredential credential) async {
-          try {
-            await _authService.signInWithCredential(credential);
-            // AuthStateChanged event will handle the state update
-          } catch (e) {
-            if (!emit.isDone) {
-              emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
-            }
-          }
-          if (!completer.isCompleted) {
-            completer.complete();
-          }
-        },
-      );
-      
-      // Wait for one of the callbacks to complete
-      await completer.future;
-    } catch (e) {
-      if (!emit.isDone) {
-        emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
-      }
+  void _onLoadingStateChanged(_LoadingStateChanged event, Emitter<AuthState> emit) {
+    if (event.isLoading) {
+      emit(const AuthState.loading());
     }
   }
 
-  // Updated method name and parameter type
-  Future<void> _onVerifyPhoneCode(
-    VerifyPhoneCodeEvent event,
-    Emitter<AuthState> emit,
-  ) async {
-    emit(Authenticating());
+  Future<void> _onSendPhoneCode(SendPhoneCodeEvent event, Emitter<AuthState> emit) async {
     try {
-      await _authService.signInWithPhoneCode(
-        event.smsCode,
-        event.verificationId,
+      await _authManager.verifyPhoneNumber(
+        phoneNumber: event.phoneNumber,
+        onCodeSent: (verificationId) {
+          if (!emit.isDone) {
+            emit(AuthState.phoneCodeSent(verificationId, event.phoneNumber));
+          }
+        },
+        onError: (error) {
+          if (!emit.isDone) {
+            emit(AuthState.failure(error));
+          }
+        },
       );
-      // The AuthStateChanged event will handle the state update
-    } catch (e) {
-      emit(AuthenticationFailure(_errorHandler.handleAuthError(e)));
+    } on AuthException catch (e) {
+      emit(AuthState.failure(e.message));
+    }
+  }
+
+  Future<void> _onVerifyPhoneCode(VerifyPhoneCodeEvent event, Emitter<AuthState> emit) async {
+    try {
+      await _authManager.verifyPhoneCode(event.smsCode, event.verificationId);
+    } on AuthException catch (e) {
+      emit(AuthState.failure(e.message));
     }
   }
 
   @override
   Future<void> close() {
     _authStateSubscription.cancel();
+    _loadingSubscription.cancel();
+    _authManager.dispose();
     return super.close();
   }
 }

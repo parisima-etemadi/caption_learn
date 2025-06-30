@@ -29,8 +29,8 @@ class _VocabularyScreenState extends State<VocabularyScreen> {
     });
 
     final items = widget.videoId != null
-        ? await _storageService.getVocabularyByVideoId(widget.videoId!)
-        : await _storageService.getVocabularyItems();
+        ? _storageService.getVocabularyByVideo(widget.videoId!)
+        : _storageService.getVocabulary();
 
     items.sort((a, b) => b.dateAdded.compareTo(a.dateAdded)); // Sort by newest first
 

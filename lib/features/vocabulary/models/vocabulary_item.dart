@@ -1,12 +1,10 @@
 import 'package:hive/hive.dart';
-import '../../../services/storage_service.dart';
 
 part 'vocabulary_item.g.dart';
 
 @HiveType(typeId: 3)
-class VocabularyItem implements Storable {
+class VocabularyItem {
   @HiveField(0)
-  @override
   final String id;
   
   @HiveField(1)
@@ -49,7 +47,6 @@ class VocabularyItem implements Storable {
     );
   }
 
-  @override
   Map<String, dynamic> toJson() {
     return {
       'id': id,

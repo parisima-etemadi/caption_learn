@@ -1,14 +1,14 @@
 import '../core/services/base_service.dart';
+import '../core/services/local_storage_service.dart';
+import '../core/services/sync_service.dart';
 import '../features/video/data/models/video_content.dart';
 import '../features/vocabulary/models/vocabulary_item.dart';
-import 'firebase_service.dart';
-import 'hive_service.dart';
 
-/// Primary storage service - handles local and remote storage with sync
+/// Unified storage service - coordinates local storage and cloud sync
 class StorageService extends BaseService {
   static final StorageService _instance = StorageService._internal();
-  final _firebase = FirebaseService();
-  final _hive = HiveService();
+  final LocalStorageService _localStorage = LocalStorageService();
+  final SyncService _syncService = SyncService();
   
   @override
   String get serviceName => 'StorageService';
@@ -18,97 +18,64 @@ class StorageService extends BaseService {
   
   /// Initialize storage service and sync data if user is logged in
   Future<void> initialize() async {
-    await _hive.openBoxes();
-    if (_firebase.isUserLoggedIn) {
+    await _localStorage.initialize();
+    
+    if (_syncService.canSync) {
       try {
-        await syncFromCloud();
+        await _syncService.syncFromCloud();
       } catch (e) {
         logger.w('Failed to sync from cloud during initialization: $e');
       }
     }
-  }
-  
-  /// Sync data from cloud to local storage
-  Future<void> syncFromCloud() async {
-    if (!_firebase.isUserLoggedIn) return;
     
-    try {
-      final videos = await _firebase.getVideos();
-      for (final video in videos) {
-        await _hive.saveVideo(video);
-      }
-      
-      final vocabulary = await _firebase.getVocabularyItems();
-      for (final item in vocabulary) {
-        await _hive.saveVocabularyItem(item);
-      }
-      
-      logger.i('Successfully synced data from cloud');
-    } catch (e) {
-      logger.e('Failed to sync from cloud: $e');
-      rethrow;
-    }
+    logger.i('Storage service initialized');
   }
   
   // Video operations
   Future<void> saveVideo(VideoContent video) async {
-    await _hive.saveVideo(video);
-    try {
-      if (_firebase.isUserLoggedIn) await _firebase.saveVideo(video);
-    } catch (e) {
-      logger.w('Failed to sync video to cloud: $e');
-    }
+    await _localStorage.saveVideo(video);
+    await _syncService.syncVideoToCloud(video); // Non-blocking sync
   }
   
   Future<void> deleteVideo(String id) async {
-    await _hive.deleteVideo(id);
-    await deleteVocabularyByVideo(id); // Also delete related vocabulary
-    try {
-      if (_firebase.isUserLoggedIn) {
-        await _firebase.deleteVideo(id);
-        await _firebase.deleteVocabularyByVideoId(id);
-      }
-    } catch (e) {
-      logger.w('Failed to delete video from cloud: $e');
-    }
+    await _localStorage.deleteVideo(id);
+    await _syncService.deleteVideoFromCloud(id); // Non-blocking sync
   }
   
-  List<VideoContent> getVideos() => _hive.getVideos();
-  VideoContent? getVideoById(String id) => _hive.getVideoById(id);
+  List<VideoContent> getVideos() => _localStorage.getVideos();
+  VideoContent? getVideoById(String id) => _localStorage.getVideoById(id);
   
   // Vocabulary operations
   Future<void> saveVocabulary(VocabularyItem item) async {
-    await _hive.saveVocabularyItem(item);
-    try {
-      if (_firebase.isUserLoggedIn) await _firebase.saveVocabularyItem(item);
-    } catch (e) {
-      logger.w('Failed to sync vocabulary to cloud: $e');
-    }
+    await _localStorage.saveVocabulary(item);
+    await _syncService.syncVocabularyToCloud(item); // Non-blocking sync
+  }
+  
+  Future<void> saveVocabularyItem(VocabularyItem item) async {
+    await saveVocabulary(item); // Alias for backward compatibility
   }
   
   Future<void> deleteVocabulary(String id) async {
-    await _hive.deleteVocabularyItem(id);
-    try {
-      if (_firebase.isUserLoggedIn) await _firebase.deleteVocabularyItem(id);
-    } catch (e) {
-      logger.w('Failed to delete vocabulary from cloud: $e');
-    }
+    await _localStorage.deleteVocabulary(id);
+    await _syncService.deleteVocabularyFromCloud(id); // Non-blocking sync
   }
   
   Future<void> deleteVocabularyByVideo(String videoId) async {
-    await _hive.deleteVocabularyByVideoId(videoId);
-    try {
-      if (_firebase.isUserLoggedIn) await _firebase.deleteVocabularyByVideoId(videoId);
-    } catch (e) {
-      logger.w('Failed to delete video vocabulary from cloud: $e');
-    }
+    await _localStorage.deleteVocabularyByVideo(videoId);
+    // Cloud cleanup is handled in deleteVideo
   }
   
-  List<VocabularyItem> getVocabulary() => _hive.getVocabularyItems();
-  List<VocabularyItem> getVocabularyByVideo(String videoId) => _hive.getVocabularyByVideoId(videoId);
+  List<VocabularyItem> getVocabulary() => _localStorage.getVocabulary();
+  List<VocabularyItem> getVocabularyByVideo(String videoId) => _localStorage.getVocabularyByVideo(videoId);
+  
+  // Sync operations
+  Future<void> syncFromCloud() => _syncService.syncFromCloud();
+  Future<void> syncAllToCloud() => _syncService.syncAllToCloud();
+  bool get canSync => _syncService.canSync;
   
   /// Dispose resources
   Future<void> dispose() async {
-    await _hive.closeBoxes();
+    await _localStorage.dispose();
+    logger.i('Storage service disposed');
   }
 }

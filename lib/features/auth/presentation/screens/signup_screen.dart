@@ -2,7 +2,6 @@ import 'package:caption_learn/features/auth/domain/utils/password_utils.dart';
 import 'package:caption_learn/features/auth/domain/validator/auth_validators.dart';
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:caption_learn/features/auth/presentation/screens/phone_verification_screen.dart';
-import 'package:caption_learn/features/auth/presentation/widgets/auth_text_form_field.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/password_text_form_field.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/password_strength_indicator.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/social_login_section.dart';
@@ -49,7 +48,7 @@ class _SignupScreenState extends State<SignupScreen> {
     // Format phone with selected country code
     final phoneNumber = "${_selectedCountry.dialCode}${_phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')}";
     
-    context.read<AuthBloc>().add(SendPhoneCodeEvent(phoneNumber: phoneNumber));
+    context.read<AuthBloc>().add(SendPhoneCodeEvent(phoneNumber));
   }
 
   @override
@@ -67,7 +66,7 @@ class _SignupScreenState extends State<SignupScreen> {
           child: BlocConsumer<AuthBloc, AuthState>(
             listener: _authStateListener,
             builder: (context, state) {
-              final isLoading = state is Authenticating;
+              final isLoading = state.isLoading;
               return Center(
                 child: SingleChildScrollView(
                   child: Padding(
@@ -296,26 +295,22 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   void _authStateListener(BuildContext context, AuthState state) {
-    if (state is RegistrationFailure || state is AuthenticationFailure) {
-      final message = state is RegistrationFailure 
-          ? (state as RegistrationFailure).message 
-          : (state as AuthenticationFailure).message;
-          
+    if (state.hasError) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.red),
+        SnackBar(content: Text(state.error!), backgroundColor: Colors.red),
       );
-    } else if (state is PhoneVerificationSent) {
+    } else if (state.isPhoneCodeSent && state.verificationId != null) {
       // Navigate to verification screen
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => PhoneVerificationScreen(
-            phoneNumber: state.phoneNumber,
-            verificationId: state.verificationId,
+            phoneNumber: state.phoneNumber!,
+            verificationId: state.verificationId!,
           ),
         ),
       );
-    } else if (state is Authenticated) {
+    } else if (state.isAuthenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Registration successful!'),

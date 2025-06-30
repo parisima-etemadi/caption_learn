@@ -65,10 +65,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
     if (_currentCode.length == 6) {
       HapticFeedback.mediumImpact();
       context.read<AuthBloc>().add(
-        VerifyPhoneCodeEvent(
-          smsCode: _currentCode,
-          verificationId: widget.verificationId,
-        ),
+        VerifyPhoneCodeEvent(_currentCode, widget.verificationId),
       );
     }
   }
@@ -78,7 +75,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
       HapticFeedback.lightImpact();
       _startResendTimer();
       context.read<AuthBloc>().add(
-        SendPhoneCodeEvent(phoneNumber: widget.phoneNumber),
+        SendPhoneCodeEvent(widget.phoneNumber),
       );
     }
   }
@@ -115,20 +112,20 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
       ),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
-          if (state is Authenticated) {
+          if (state.isAuthenticated) {
             Navigator.of(
               context,
             ).pushNamedAndRemoveUntil('/', (route) => false);
-          } else if (state is AuthenticationFailure) {
+          } else if (state.hasError) {
             HapticFeedback.heavyImpact();
             _showSnackBar(
-              state.message,
+              state.error!,
               Colors.red.shade600,
               Icons.error_outline,
             );
             _codeController.clear();
             setState(() => _currentCode = '');
-          } else if (state is PhoneVerificationSent) {
+          } else if (state.isPhoneCodeSent) {
             _showSnackBar(
               'New verification code sent',
               Colors.green.shade600,
@@ -137,7 +134,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen> {
           }
         },
         builder: (context, state) {
-          final isLoading = state is Authenticating;
+          final isLoading = state.isLoading;
 
           return Stack(
             children: [

@@ -7,9 +7,8 @@ import 'package:caption_learn/core/utils/logger.dart';
 /// This class provides methods to handle different types of errors throughout the app
 class ErrorHandler {
   final Logger _logger;
-  final String _tag;
 
-  ErrorHandler(this._tag) : _logger = Logger(_tag);
+  ErrorHandler(String tag) : _logger = Logger(tag);
 
   /// Handles authentication errors
   String handleAuthError(dynamic error) {

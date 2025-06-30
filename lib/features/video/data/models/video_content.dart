@@ -1,6 +1,5 @@
 import 'package:caption_learn/features/video/domain/enum/video_source.dart';
 import 'package:hive/hive.dart';
-import '../../../../services/storage_service.dart';
 
 part 'video_content.g.dart';
 
@@ -43,9 +42,8 @@ class Subtitle {
 }
 
 @HiveType(typeId: 0)
-class VideoContent implements Storable {
+class VideoContent {
   @HiveField(0)
-  @override
   final String id;
   
   @HiveField(1)
@@ -104,7 +102,6 @@ class VideoContent implements Storable {
     );
   }
 
-  @override
   Map<String, dynamic> toJson() {
     return {
       'id': id,

@@ -3,7 +3,6 @@ import 'package:caption_learn/features/auth/domain/validator/auth_validators.dar
 import 'package:caption_learn/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:caption_learn/features/auth/presentation/screens/phone_verification_screen.dart';
 import 'package:caption_learn/features/auth/presentation/screens/signup_screen.dart';
-import 'package:caption_learn/features/auth/presentation/widgets/auth_text_form_field.dart';
 import 'package:caption_learn/features/auth/presentation/widgets/social_login_section.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:country_code_picker/country_code_picker.dart';
@@ -35,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // Format phone with country code
     final phoneNumber = "${_selectedCountry.dialCode}${_phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '')}";
     
-    context.read<AuthBloc>().add(SendPhoneCodeEvent(phoneNumber: phoneNumber));
+    context.read<AuthBloc>().add(SendPhoneCodeEvent(phoneNumber));
   }
 
   Future<void> _signInWithGoogle() async {
@@ -74,17 +73,17 @@ class _LoginScreenState extends State<LoginScreen> {
           listener: _authStateListener,
           builder: (context, state) {
             // Show error widget for network errors
-            if (state is AuthenticationFailure && 
-                (state.message.contains('network') || 
-                 state.message.contains('connection') ||
-                 state.message.contains('internet'))) {
+            if (state.hasError && state.error != null &&
+                (state.error!.contains('network') || 
+                 state.error!.contains('connection') ||
+                 state.error!.contains('internet'))) {
               return NetworkErrorWidget(
-                message: state.message,
+                message: state.error!,
                 onRetry: _signInWithGoogle,
               );
             }
             
-            final isLoading = state is Authenticating;
+            final isLoading = state.isLoading;
             
             return SafeArea(
               child: Center(
@@ -279,22 +278,22 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _authStateListener(BuildContext context, AuthState state) {
-    if (state is AuthenticationFailure) {
+    if (state.hasError) {
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(state.message),
+          content: Text(state.error!),
           backgroundColor: Colors.red,
         ),
       );
-    } else if (state is PhoneVerificationSent) {
+    } else if (state.isPhoneCodeSent && state.verificationId != null) {
       // Navigate to verification screen
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => PhoneVerificationScreen(
-            phoneNumber: state.phoneNumber,
-            verificationId: state.verificationId,
+            phoneNumber: state.phoneNumber!,
+            verificationId: state.verificationId!,
           ),
         ),
       );
