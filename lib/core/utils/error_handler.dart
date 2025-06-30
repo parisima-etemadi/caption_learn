@@ -43,25 +43,15 @@ class ErrorHandler {
     return 'An unexpected error occurred. Please try again.';
   }
   
-  /// Show error message to user via SnackBar
-  static void showError(BuildContext context, String message, {Color? backgroundColor}) {
+  /// Show message to user via SnackBar
+  static void show(BuildContext context, String message, [Color? color]) {
     if (!context.mounted) return;
-    
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: backgroundColor ?? Colors.red,
-      ),
+      SnackBar(content: Text(message), backgroundColor: color ?? Colors.red),
     );
   }
   
-  /// Show warning message to user via SnackBar
-  static void showWarning(BuildContext context, String message) {
-    showError(context, message, backgroundColor: Colors.orange);
-  }
-  
-  /// Show success message to user via SnackBar
-  static void showSuccess(BuildContext context, String message) {
-    showError(context, message, backgroundColor: Colors.green);
-  }
+  static void showError(BuildContext context, String message) => show(context, message);
+  static void showWarning(BuildContext context, String message) => show(context, message, Colors.orange);
+  static void showSuccess(BuildContext context, String message) => show(context, message, Colors.green);
 }

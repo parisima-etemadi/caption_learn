@@ -2,6 +2,7 @@
 import 'dart:async';
 
 import 'package:caption_learn/features/video/data/models/video_content.dart';
+import 'package:caption_learn/services/youtube/youtube_exceptions.dart';
 import 'package:caption_learn/services/youtube_service.dart';
 import '../../domain/enum/video_source.dart';
 import '../../../../core/utils/logger.dart';

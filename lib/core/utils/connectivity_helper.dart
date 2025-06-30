@@ -2,26 +2,18 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'error_handler.dart';
 
-/// Utility class for network connectivity operations
+/// Simple connectivity helper
 class ConnectivityHelper {
-  /// Check if device is connected to internet
   static Future<bool> isConnected() async {
-    final connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult.isNotEmpty && 
-           connectivityResult.first != ConnectivityResult.none;
+    final result = await Connectivity().checkConnectivity();
+    return result.isNotEmpty && result.first != ConnectivityResult.none;
   }
   
-  /// Check connectivity and show error if offline
-  static Future<bool> checkConnectivityWithError(BuildContext context, {String? errorMessage}) async {
-    final isConnected = await ConnectivityHelper.isConnected();
-    
-    if (!isConnected && context.mounted) {
-      ErrorHandler.showError(
-        context, 
-        errorMessage ?? 'No internet connection. Please check your network and try again.'
-      );
+  static Future<bool> checkWithError(BuildContext context, [String? message]) async {
+    final connected = await isConnected();
+    if (!connected && context.mounted) {
+      ErrorHandler.showError(context, message ?? 'No internet connection');
     }
-    
-    return isConnected;
+    return connected;
   }
 }
