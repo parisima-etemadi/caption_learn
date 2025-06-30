@@ -1,0 +1,173 @@
+import 'dart:async';
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import '../../core/utils/logger.dart';
+import '../../core/utils/youtube_utils.dart';
+import '../../features/video/data/models/video_content.dart';
+import '../../features/video/domain/enum/video_source.dart';
+import 'youtube_exceptions.dart';
+
+/// Handles YouTube video processing and metadata extraction
+class YouTubeVideoProcessor {
+  final YoutubeExplode _youtubeExplode;
+  final Logger _logger = const Logger('YouTubeVideoProcessor');
+  
+  // Cache for video metadata
+  final Map<String, Video> _videoCache = {};
+  final Map<String, List<ClosedCaption>> _subtitleCache = {};
+  
+  YouTubeVideoProcessor(this._youtubeExplode);
+  
+  /// Process a YouTube URL and extract video content
+  Future<VideoContent> processVideoUrl(String url) async {
+    if (!YoutubeUtils.isYoutubeUrl(url)) {
+      throw YouTubeServiceException('Invalid YouTube URL format');
+    }
+
+    final videoId = YoutubeUtils.extractYoutubeVideoId(url);
+    if (videoId == null || videoId.isEmpty) {
+      throw YouTubeServiceException('Could not extract video ID from URL');
+    }
+
+    try {
+      // Get video metadata
+      final video = await _getVideoWithCache(videoId);
+      
+      // Check if video is available
+      if (!video.isLive && video.duration == null) {
+        throw YouTubeServiceException('Video appears to be unavailable');
+      }
+
+      // Get subtitles
+      List<Subtitle> subtitles;
+      String? subtitleWarning;
+      
+      try {
+        subtitles = await _getSubtitlesWithCache(videoId);
+      } on YouTubeSubtitleException catch (e) {
+        _logger.w('Could not fetch subtitles for $videoId: ${e.message}');
+        subtitles = [];
+        subtitleWarning = e.message;
+      }
+
+      return VideoContent(
+        id: videoId,
+        title: video.title,
+        sourceUrl: url,
+        subtitles: subtitles,
+        source: VideoSource.youtube,
+        dateAdded: DateTime.now(),
+        subtitleWarning: subtitleWarning,
+      );
+    } catch (e) {
+      _logger.e('Error processing video $videoId', e);
+      if (e is YouTubeServiceException) rethrow;
+      throw YouTubeServiceException('Failed to process video: ${e.toString()}');
+    }
+  }
+  
+  /// Get video metadata with caching
+  Future<Video> _getVideoWithCache(String videoId) async {
+    if (_videoCache.containsKey(videoId)) {
+      _logger.d('Using cached video metadata for $videoId');
+      return _videoCache[videoId]!;
+    }
+
+    try {
+      final video = await _youtubeExplode.videos.get(videoId).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw YouTubeServiceException('Video metadata request timed out'),
+      );
+
+      _videoCache[videoId] = video;
+      _logger.i('Fetched and cached video metadata for: ${video.title}');
+      return video;
+    } catch (e) {
+      if (e is YouTubeServiceException) rethrow;
+      throw YouTubeServiceException('Failed to fetch video metadata: ${e.toString()}');
+    }
+  }
+  
+  /// Get subtitles with caching and fallback strategies
+  Future<List<Subtitle>> _getSubtitlesWithCache(String videoId) async {
+    if (_subtitleCache.containsKey(videoId)) {
+      _logger.d('Using cached subtitles for $videoId');
+      final closedCaptions = _subtitleCache[videoId]!;
+      return _convertClosedCaptionsToSubtitles(closedCaptions);
+    }
+
+    try {
+      final subtitleManifest = await _youtubeExplode.videos.closedCaptions.getManifest(videoId).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw YouTubeSubtitleException('Subtitle manifest request timed out'),
+      );
+
+      if (subtitleManifest.tracks.isEmpty) {
+        throw YouTubeSubtitleException('No subtitles available for this video');
+      }
+
+      // Try to get subtitles with language preference
+      final track = _selectBestSubtitleTrack(subtitleManifest.tracks.toList());
+      final closedCaptionTrack = await _youtubeExplode.videos.closedCaptions.get(track).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw YouTubeSubtitleException('Subtitle download timed out'),
+      );
+
+      _subtitleCache[videoId] = closedCaptionTrack.captions;
+      _logger.i('Fetched and cached subtitles for $videoId (${track.language.name})');
+      
+      return _convertClosedCaptionsToSubtitles(closedCaptionTrack.captions);
+    } catch (e) {
+      if (e is YouTubeSubtitleException) rethrow;
+      throw YouTubeSubtitleException('Failed to fetch subtitles: ${e.toString()}');
+    }
+  }
+  
+  /// Select the best subtitle track based on language preferences
+  ClosedCaptionTrackInfo _selectBestSubtitleTrack(List<ClosedCaptionTrackInfo> tracks) {
+    // Preferred language order
+    const preferredLanguages = ['en', 'english'];
+    
+    // First try to find manual (non-auto-generated) subtitles
+    for (final lang in preferredLanguages) {
+      final track = tracks.where((t) => 
+        !t.isAutoGenerated && 
+        (t.language.code.toLowerCase().contains(lang) || 
+         t.language.name.toLowerCase().contains(lang))
+      ).firstOrNull;
+      if (track != null) return track;
+    }
+    
+    // Then try auto-generated subtitles for preferred languages
+    for (final lang in preferredLanguages) {
+      final track = tracks.where((t) => 
+        t.language.code.toLowerCase().contains(lang) || 
+        t.language.name.toLowerCase().contains(lang)
+      ).firstOrNull;
+      if (track != null) return track;
+    }
+    
+    // Finally, fall back to any available subtitle
+    return tracks.first;
+  }
+  
+  /// Convert YouTube closed captions to our Subtitle format
+  List<Subtitle> _convertClosedCaptionsToSubtitles(List<ClosedCaption> closedCaptions) {
+    return closedCaptions.map((caption) => Subtitle(
+      startTime: caption.offset.inMilliseconds,
+      endTime: (caption.offset + caption.duration).inMilliseconds,
+      text: caption.text,
+    )).toList();
+  }
+  
+  /// Clear cache (useful for memory management)
+  void clearCache() {
+    _videoCache.clear();
+    _subtitleCache.clear();
+    _logger.i('Cleared video and subtitle caches');
+  }
+}
+
+/// Extension for null-safe firstOrNull
+extension IterableExtension<T> on Iterable<T> {
+  T? get firstOrNull => isEmpty ? null : first;
+}

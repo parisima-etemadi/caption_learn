@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:caption_learn/core/utils/firebase_auth_error_mapper.dart';
 import 'package:caption_learn/core/utils/logger.dart';
 
@@ -40,5 +41,27 @@ class ErrorHandler {
   String handleError(dynamic error) {
     _logger.e('General error', error);
     return 'An unexpected error occurred. Please try again.';
+  }
+  
+  /// Show error message to user via SnackBar
+  static void showError(BuildContext context, String message, {Color? backgroundColor}) {
+    if (!context.mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor ?? Colors.red,
+      ),
+    );
+  }
+  
+  /// Show warning message to user via SnackBar
+  static void showWarning(BuildContext context, String message) {
+    showError(context, message, backgroundColor: Colors.orange);
+  }
+  
+  /// Show success message to user via SnackBar
+  static void showSuccess(BuildContext context, String message) {
+    showError(context, message, backgroundColor: Colors.green);
   }
 }
