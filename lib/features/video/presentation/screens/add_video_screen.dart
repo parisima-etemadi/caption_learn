@@ -48,34 +48,45 @@ Future<void> _processVideo() async {
     // Process the video URL to get details and subtitles
     final videoContent = await _videoService.processVideoUrl(url);
 
-    // Check if subtitles were found
+    // Check if subtitles were found and handle warnings
     if (videoContent.subtitles.isEmpty && mounted) {
-      // Show a warning dialog
-      final proceed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('No Subtitles Found'),
-          content: const Text(
-            'This video doesn\'t have subtitles available. You can still add it, but you won\'t be able to use the subtitle features.\n\nDo you want to continue?',
+      if (videoContent.subtitleWarning != null) {
+        // Show specific warning message - video will still be added
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ ${videoContent.subtitleWarning}'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
+        );
+      } else {
+        // Show generic dialog for truly missing subtitles
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('No Subtitles Found'),
+            content: const Text(
+              'This video doesn\'t have subtitles available. You can still add it, but you won\'t be able to use the subtitle features.\n\nDo you want to continue?',
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Continue'),
-            ),
-          ],
-        ),
-      );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        );
 
-      if (proceed != true) {
-        setState(() {
-          _isProcessing = false;
-        });
-        return;
+        if (proceed != true) {
+          setState(() {
+            _isProcessing = false;
+          });
+          return;
+        }
       }
     }
 
@@ -83,13 +94,18 @@ Future<void> _processVideo() async {
     await _storageService.saveVideo(videoContent);
 
     if (mounted) {
+      String message;
+      if (videoContent.subtitles.isNotEmpty) {
+        message = 'Video added: ${videoContent.title}';
+      } else if (videoContent.subtitleWarning != null) {
+        message = 'Video added: ${videoContent.title} (Subtitles had issues but video is ready)';
+      } else {
+        message = 'Video added: ${videoContent.title} (No subtitles available)';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            videoContent.subtitles.isEmpty 
-              ? 'Video added: ${videoContent.title} (No subtitles available)'
-              : 'Video added: ${videoContent.title}',
-          ),
+          content: Text(message),
           backgroundColor: Colors.green,
         ),
       );

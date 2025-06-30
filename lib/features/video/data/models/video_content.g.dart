@@ -64,13 +64,14 @@ class VideoContentAdapter extends TypeAdapter<VideoContent> {
       localPath: fields[4] as String?,
       subtitles: (fields[5] as List).cast<Subtitle>(),
       dateAdded: fields[6] as DateTime,
+      subtitleWarning: fields[7] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, VideoContent obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -84,7 +85,9 @@ class VideoContentAdapter extends TypeAdapter<VideoContent> {
       ..writeByte(5)
       ..write(obj.subtitles)
       ..writeByte(6)
-      ..write(obj.dateAdded);
+      ..write(obj.dateAdded)
+      ..writeByte(7)
+      ..write(obj.subtitleWarning);
   }
 
   @override

@@ -66,6 +66,9 @@ class VideoContent implements Storable {
   @HiveField(6)
   final DateTime dateAdded;
 
+  @HiveField(7)
+  final String? subtitleWarning; // Add this to show in the UI
+
   const VideoContent({
     required this.id,
     required this.title,
@@ -74,6 +77,7 @@ class VideoContent implements Storable {
     this.localPath,
     required this.subtitles,
     required this.dateAdded,
+    this.subtitleWarning,
   });
 
   factory VideoContent.fromJson(Map<String, dynamic> json) {
@@ -96,6 +100,7 @@ class VideoContent implements Storable {
               .toList(),
       dateAdded:
           DateTime.tryParse(json['dateAdded'] as String) ?? DateTime.now(),
+      subtitleWarning: json['subtitleWarning'] as String?,
     );
   }
 
@@ -109,6 +114,7 @@ class VideoContent implements Storable {
       'localPath': localPath,
       'subtitles': subtitles.map((subtitle) => subtitle.toJson()).toList(),
       'dateAdded': dateAdded.toIso8601String(),
+      'subtitleWarning': subtitleWarning,
     };
   }
 
@@ -120,6 +126,7 @@ class VideoContent implements Storable {
     String? localPath,
     List<Subtitle>? subtitles,
     DateTime? dateAdded,
+    String? subtitleWarning,
   }) {
     return VideoContent(
       id: id ?? this.id,
@@ -129,6 +136,7 @@ class VideoContent implements Storable {
       localPath: localPath ?? this.localPath,
       subtitles: subtitles ?? this.subtitles,
       dateAdded: dateAdded ?? this.dateAdded,
+      subtitleWarning: subtitleWarning ?? this.subtitleWarning,
     );
   }
 }

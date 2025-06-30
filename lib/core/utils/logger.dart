@@ -3,7 +3,7 @@ enum LogLevel { debug, info, warning, error }
 class Logger {
   final String tag;
   
-  static LogLevel logLevel = LogLevel.info;
+  static LogLevel logLevel = LogLevel.debug;
   
   const Logger(this.tag);
   
