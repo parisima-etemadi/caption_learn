@@ -15,6 +15,9 @@ class AppConstants {
   // Auth configuration
   static const String googleClientId = '1028174393649-3cu65svme7gqnjb847fkeid9te7jrlgv.apps.googleusercontent.com';
   
+  // YouTube API configuration
+  static const String youtubeApiKey = 'AIzaSyC8ZhPsi-SgQDP7I85d9ftZMdnc7rf4eks';
+  
   // Timeouts
   static const Duration phoneVerificationTimeout = Duration(seconds: 60);
 }

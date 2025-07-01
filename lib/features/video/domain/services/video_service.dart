@@ -1,27 +1,35 @@
 import 'dart:async';
-import 'package:youtube_explode_dart/youtube_explode_dart.dart';
-import 'package:youtube_caption_scraper/youtube_caption_scraper.dart';
+import 'dart:convert';
+import 'package:caption_learn/core/utils/logger.dart';
 import 'package:http/http.dart' as http;
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/exceptions/app_exceptions.dart';
 import '../../../../core/services/base_service.dart';
 import '../../../../core/utils/youtube_utils.dart';
-import '../../data/models/video_content.dart';
-import '../../domain/enum/video_source.dart';
-import '../../../../core/exceptions/app_exceptions.dart';
+import '../../../../services/auth/youtube_oauth_service.dart';
 import '../../../../services/subtitle/subtitle_parser.dart';
+import '../../data/models/video_content.dart';
+import '../enum/video_source.dart';
 
-/// Unified video processing service - handles YouTube video processing directly
+/// Service to process YouTube video URLs, fetch metadata, and extract subtitles.
+/// It uses an orchestrator pattern to try multiple subtitle extraction strategies
+/// until one succeeds, ensuring maximum reliability.
 class VideoService extends BaseService {
   static final VideoService _instance = VideoService._internal();
-  final YoutubeExplode _youtubeExplode = YoutubeExplode();
   final Map<String, VideoContent> _cache = {};
-  
+
   @override
   String get serviceName => 'VideoService';
-  
+
   factory VideoService() => _instance;
   VideoService._internal();
 
-  /// Process a video URL - currently supports YouTube only
+  /// Processes a YouTube video URL.
+  ///
+  /// Fetches video metadata and then uses the [_SubtitleOrchestrator]
+  /// to attempt various strategies for extracting subtitles.
   Future<VideoContent> processVideoUrl(String url) async {
     if (!YoutubeUtils.isYoutubeUrl(url)) {
       throw const VideoException('Only YouTube URLs are supported');
@@ -32,272 +40,218 @@ class VideoService extends BaseService {
       throw const VideoException('Invalid YouTube URL format');
     }
     final videoId = VideoId(videoIdString);
-    
-    final id = videoId.toString();
-    if (_cache.containsKey(id)) {
-      logger.i('Returning cached video: $id');
-      return _cache[id]!;
+
+    if (_cache.containsKey(videoId.value)) {
+      logger.i('Returning cached video: ${videoId.value}');
+      return _cache[videoId.value]!;
     }
 
+    // **FIX**: Create a new YoutubeExplode instance for each request to avoid client-closed errors.
+    final yt = YoutubeExplode();
     try {
       logger.i('Processing YouTube video: $url');
-      final video = await _youtubeExplode.videos.get(videoId);
-      print(video.title);
-       print(video);
-      // Try to get subtitles with retry logic
-      ClosedCaptionManifest? manifest = await _getManifestWithRetry(videoId);
-      
-      List<Subtitle> subtitles = [];
-      String? warning;
-      
-      if (manifest?.tracks.isNotEmpty == true) {
-        // Try multiple tracks in case some have parsing issues
-        final englishTracks = manifest!.tracks
-            .where((t) => t.language.code.startsWith('en'))
-            .toList();
-        final tracksToTry = englishTracks.isNotEmpty ? englishTracks : manifest.tracks.toList();
-        
-        bool successfullyExtracted = false;
-        
-        for (final track in tracksToTry) {
-          try {
-            logger.i('Attempting to extract from track: ${track.language.name} (${track.language.code})');
-            final captions = await _youtubeExplode.videos.closedCaptions.get(track);
-            subtitles = captions.captions.map((c) => Subtitle(
-              startTime: c.offset.inMilliseconds,
-              endTime: (c.offset + c.duration).inMilliseconds,
-              text: c.text,
-            )).toList();
-            
-            logger.i('Successfully extracted ${subtitles.length} subtitles from ${track.language.name}');
-            successfullyExtracted = true;
-            break;
-          } catch (e) {
-            logger.w('Failed to extract from track ${track.language.name}: $e');
-            
-            // If it's an XML parsing error, this might be a known issue with youtube_explode_dart
-            if (e.toString().contains('XmlParserException')) {
-              logger.i('XML parsing error detected - this appears to be a youtube_explode_dart library issue');
-            }
-            // Continue to next track
-          }
-        }
-        
-        if (!successfullyExtracted) {
-          // Fallback: try to extract subtitles using youtube_caption_scraper
-          logger.i('Attempting fallback subtitle extraction...');
-          subtitles = await _fallbackSubtitleExtraction(url);
-          
-          if (subtitles.isNotEmpty) {
-            logger.i('Fallback extraction successful: ${subtitles.length} subtitles');
-          } else {
-            // Try direct API extraction as final fallback
-            logger.i('Attempting direct YouTube API extraction...');
-            subtitles = await _directYouTubeApiExtraction(videoId.toString());
-            
-            if (subtitles.isNotEmpty) {
-              logger.i('Direct API extraction successful: ${subtitles.length} subtitles');
-            } else {
-              warning = _getSubtitleErrorMessage('No extraction method succeeded');
-              logger.w('All subtitle extraction methods failed - YouTube API changes affecting all approaches');
-            }
-          }
-        }
-      } else {
-        warning = 'No subtitles found';
-      }
-      
+      final video = await yt.videos.get(videoId);
+      logger.i('Video title: ${video.title}');
+
+      final orchestrator = _SubtitleOrchestrator(videoId, logger);
+      final subtitleResult = await orchestrator.extractSubtitles();
+
       final result = VideoContent(
-        id: id,
+        id: videoId.value,
         title: video.title,
         sourceUrl: url,
-        subtitles: subtitles,
+        subtitles: subtitleResult.subtitles,
         source: VideoSource.youtube,
         dateAdded: DateTime.now(),
-        subtitleWarning: warning,
+        subtitleWarning: subtitleResult.warning,
       );
-      
-      _cache[id] = result;
+
+      _cache[videoId.value] = result;
       logger.i('Successfully processed video: ${video.title}');
       return result;
-      
     } catch (e) {
       logger.e('Failed to process YouTube video: $url', e);
-      throw VideoException('Failed to process video: $e', originalError: e);
+      throw VideoException('Failed to process video: ${e.toString()}', originalError: e);
+    } finally {
+      // **FIX**: Ensure the client is always closed after the operation.
+      yt.close();
     }
-  }
-  
-  /// Fallback method to extract subtitles using youtube_caption_scraper
-  Future<List<Subtitle>> _fallbackSubtitleExtraction(String videoUrl) async {
-    try {
-      logger.i('Attempting subtitle extraction with youtube_caption_scraper');
-      
-      final captionScraper = YouTubeCaptionScraper();
-      final captionTracks = await captionScraper.getCaptionTracks(videoUrl);
-      
-      if (captionTracks.isEmpty) {
-        logger.w('No caption tracks found by youtube_caption_scraper');
-        return [];
-      }
-      
-      logger.i('Found ${captionTracks.length} caption tracks with scraper');
-      
-      // Try to find English captions first, then any available
-      var preferredTrack = captionTracks.where((track) => 
-        track.languageCode?.toLowerCase().contains('en') == true ||
-        track.name?.toLowerCase().contains('english') == true
-      ).firstOrNull;
-      
-      preferredTrack ??= captionTracks.first;
-      
-      logger.i('Using caption track: ${preferredTrack.name} (${preferredTrack.languageCode})');
-      
-      final subtitles = await captionScraper.getSubtitles(preferredTrack);
-      
-      // Convert youtube_caption_scraper subtitles to our format
-      final convertedSubtitles = subtitles.map((subtitle) => Subtitle(
-        startTime: subtitle.start?.inMilliseconds ?? 0,
-        endTime: (subtitle.start?.inMilliseconds ?? 0) + (subtitle.duration?.inMilliseconds ?? 0),
-        text: subtitle.text ?? '',
-      )).where((s) => s.text.isNotEmpty).toList();
-      
-      logger.i('Successfully converted ${convertedSubtitles.length} subtitles');
-      return convertedSubtitles;
-      
-    } catch (e) {
-      logger.w('Fallback extraction with youtube_caption_scraper failed: $e');
-      return [];
-    }
-  }
-  
-  /// Try getting manifest with different YouTube clients
-  Future<ClosedCaptionManifest?> _getManifestWithRetry(VideoId videoId) async {
-    // Try multiple approaches to get the manifest
-    final approaches = [
-      () async {
-        logger.i('Attempting to get manifest with iOS headers');
-        final iosClient = YoutubeExplode(YoutubeHttpClient());
-        try {
-          return await iosClient.videos.closedCaptions.getManifest(videoId);
-        } finally {
-          iosClient.close();
-        }
-      },
-      () async {
-        logger.i('Attempting to get manifest with Android headers');
-        final androidClient = YoutubeExplode(YoutubeHttpClient());
-        try {
-          return await androidClient.videos.closedCaptions.getManifest(videoId);
-        } finally {
-          androidClient.close();
-        }
-      },
-      () async {
-        logger.i('Attempting to get manifest with default client');
-        return await _youtubeExplode.videos.closedCaptions.getManifest(videoId);
-      },
-    ];
-    
-    for (final approach in approaches) {
-      try {
-        final manifest = await approach();
-        if (manifest.tracks.isNotEmpty) {
-          logger.i('Successfully got manifest with ${manifest.tracks.length} tracks');
-          return manifest;
-        }
-      } catch (e) {
-        logger.w('Manifest attempt failed: $e');
-        continue;
-      }
-    }
-    
-    return null;
-  }
-  
-  /// Direct YouTube API extraction as final fallback
-  Future<List<Subtitle>> _directYouTubeApiExtraction(String videoId) async {
-    try {
-      // YouTube's timedtext API endpoints to try
-      final endpoints = [
-        'https://www.youtube.com/api/timedtext?v=$videoId&lang=en&fmt=srv3',
-        'https://www.youtube.com/api/timedtext?v=$videoId&lang=en&fmt=vtt',
-        'https://www.youtube.com/api/timedtext?v=$videoId&lang=en-US&fmt=srv3',
-      ];
-      
-      for (final url in endpoints) {
-        try {
-          logger.i('Trying direct API: $url');
-          final response = await http.get(Uri.parse(url));
-          
-          if (response.statusCode == 200 && response.body.isNotEmpty) {
-            logger.i('Direct API response received, parsing...');
-            return _parseTimedTextResponse(response.body);
-          }
-        } catch (e) {
-          logger.w('Direct API request failed: $e');
-          continue;
-        }
-      }
-    } catch (e) {
-      logger.w('Direct YouTube API extraction failed: $e');
-    }
-    return [];
-  }
-  
-  /// Parse timedtext API response
-  List<Subtitle> _parseTimedTextResponse(String responseBody) {
-    try {
-      // Try parsing as VTT format
-      if (responseBody.contains('WEBVTT')) {
-        return SubtitleParser.parseVtt(responseBody);
-      }
-      
-      // Try parsing as SRV3 (XML) format
-      if (responseBody.contains('<?xml')) {
-        return SubtitleParser.parseSrv3(responseBody);
-      }
-      
-      logger.w('Unknown subtitle format in direct API response');
-      return [];
-    } catch (e) {
-      logger.w('Failed to parse timedtext response: $e');
-      return [];
-    }
-  }
-  
-  /// Get user-friendly error message
-  String _getSubtitleErrorMessage(dynamic error) {
-    final errorStr = error.toString();
-    
-    if (errorStr.contains('XmlParserException')) {
-      return 'YouTube subtitle format has changed. We\'re working on a fix.';
-    } else if (errorStr.contains('VideoUnavailableException')) {
-      return 'This video is not available in your region.';
-    } else if (errorStr.contains('403') || errorStr.contains('Forbidden')) {
-      return 'Access to subtitles is restricted for this video.';
-    } else if (errorStr.contains('No extraction method succeeded')) {
-      return 'Unable to extract subtitles. YouTube may have updated their API.';
-    }
-    
-    return 'Unable to load subtitles at this time. Please try again later.';
   }
 
-  /// Clear video cache
   void clearCache() {
     _cache.clear();
     logger.i('Video cache cleared');
   }
 
-  /// Dispose of resources
   void dispose() {
-    _youtubeExplode.close();
-    _cache.clear();
+    // The YoutubeExplode instance is now managed within processVideoUrl,
+    // so there's nothing to close here.
+    clearCache();
     logger.i('VideoService disposed');
   }
 }
 
-/// Extension to safely get first element or null
-extension<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
-}
+/// A private helper class to manage the complex process of subtitle extraction.
+/// It tries a series of strategies in order until one is successful.
+class _SubtitleOrchestrator {
+  final VideoId _videoId;
+  final Logger _logger;
+  final YoutubeExplode _yt;
+  final YouTubeOAuthService _oauthService;
 
+  _SubtitleOrchestrator(this._videoId, this._logger)
+      : _yt = YoutubeExplode(),
+        _oauthService = YouTubeOAuthService();
+
+  /// The main method that attempts to extract subtitles using a sequence of strategies.
+  Future<({List<Subtitle> subtitles, String? warning})> extractSubtitles() async {
+    List<Subtitle> subtitles = [];
+    String? warning;
+
+    final strategies = [
+      _tryYoutubeExplode,
+      _tryOAuth,
+      _tryWebScraping,
+    ];
+
+    for (final strategy in strategies) {
+      try {
+        final result = await strategy();
+        if (result.subtitles.isNotEmpty) {
+          subtitles = result.subtitles;
+          warning = result.warning;
+          _logger.i('Extraction successful with strategy: ${strategy.toString()}');
+          break;
+        }
+        if (result.warning != null) {
+          warning = result.warning;
+        }
+      } catch (e) {
+        _logger.w('Strategy ${strategy.toString()} failed: $e');
+        if (e.toString().contains('403:')) {
+            warning = 'The video owner has disabled subtitle downloads for third-party apps.';
+        }
+        continue;
+      }
+    }
+
+    if (subtitles.isEmpty && warning == null) {
+      warning = "Could not find or extract subtitles for this video.";
+    }
+    
+    _yt.close();
+    return (subtitles: subtitles, warning: warning);
+  }
+
+  /// Strategy 1: Use the youtube_explode_dart package directly.
+  Future<({List<Subtitle> subtitles, String? warning})> _tryYoutubeExplode() async {
+    _logger.i("Attempting strategy: YoutubeExplode");
+    final manifest = await _yt.videos.closedCaptions.getManifest(_videoId);
+
+    if (manifest.tracks.isEmpty) return (subtitles: <Subtitle>[], warning: null);
+
+    final trackInfo = manifest.tracks.firstWhere(
+        (t) => t.language.code.startsWith('en'),
+        orElse: () => manifest.tracks.first);
+
+    try {
+      final track = await _yt.videos.closedCaptions.get(trackInfo);
+      final subtitles = track.captions
+          .map((c) => Subtitle(
+                startTime: c.offset.inMilliseconds,
+                endTime: (c.offset + c.duration).inMilliseconds,
+                text: c.text,
+              ))
+          .toList();
+      return (subtitles: subtitles, warning: null);
+    } on Exception catch (e) {
+        if (e.toString().contains('XmlParserException')) {
+            _logger.w('YoutubeExplode failed with XML error, will try other methods. ${e.toString()}');
+        } else {
+            throw e;
+        }
+        return (subtitles: <Subtitle>[], warning: null);
+    }
+  }
+
+  /// Strategy 2: Use the official YouTube Data API with user authentication.
+  Future<({List<Subtitle> subtitles, String? warning})> _tryOAuth() async {
+    _logger.i("Attempting strategy: OAuth");
+    if (!_oauthService.isAuthenticated) {
+      _logger.i("Skipping OAuth: User not authenticated.");
+      final tracks = await _fetchCaptionTracksFromApi();
+      if (tracks.isNotEmpty) {
+        return (subtitles: <Subtitle>[], warning: 'Subtitles available but require YouTube authentication. Please sign in via Settings.');
+      }
+      return (subtitles: <Subtitle>[], warning: null);
+    }
+
+    final captionTracks = await _fetchCaptionTracksFromApi();
+    if (captionTracks.isEmpty) return (subtitles: <Subtitle>[], warning: null);
+
+    final track = captionTracks.firstWhere(
+        (t) => t['language'] != null && (t['language'] as String).startsWith('en'),
+        orElse: () => captionTracks.first);
+
+    final captionId = track['id'] as String;
+    final captionData = await _oauthService.downloadCaptions(captionId);
+
+    if (captionData != null && captionData.isNotEmpty) {
+      return (subtitles: SubtitleParser.parse(captionData), warning: null);
+    }
+    return (subtitles: <Subtitle>[], warning: null);
+  }
+
+  /// Strategy 3: Scrape the YouTube watch page for subtitle data.
+  Future<({List<Subtitle> subtitles, String? warning})> _tryWebScraping() async {
+    _logger.i("Attempting strategy: Web Scraping");
+    final url = 'https://www.youtube.com/watch?v=${_videoId.value}';
+    final response = await http.get(Uri.parse(url), headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9',
+    });
+
+    if (response.statusCode != 200) return (subtitles: <Subtitle>[], warning: null);
+
+    final playerResponseMatch = RegExp(r'var ytInitialPlayerResponse\s*=\s*({.+?});').firstMatch(response.body);
+    if (playerResponseMatch == null) return (subtitles: <Subtitle>[], warning: null);
+
+    final playerResponse = json.decode(playerResponseMatch.group(1)!);
+    final renderer = playerResponse['captions']?['playerCaptionsTracklistRenderer'];
+    final tracks = renderer?['captionTracks'] as List?;
+
+    if (tracks == null || tracks.isEmpty) return (subtitles: <Subtitle>[], warning: null);
+
+    final track = tracks.firstWhere((t) => (t['languageCode'] as String).startsWith('en'), orElse: () => tracks.first);
+    final baseUrl = track['baseUrl'] as String?;
+
+    if (baseUrl == null) return (subtitles: <Subtitle>[], warning: null);
+
+    final subtitleResponse = await http.get(Uri.parse(baseUrl));
+    if (subtitleResponse.statusCode == 200 && subtitleResponse.body.isNotEmpty) {
+      final List<Subtitle> subtitles = SubtitleParser.parse(subtitleResponse.body);
+      return (subtitles: subtitles, warning: null);
+    }
+
+    return (subtitles: <Subtitle>[], warning: null);
+  }
+
+  /// Helper to fetch the list of available caption tracks via the Data API.
+  Future<List<Map<String, dynamic>>> _fetchCaptionTracksFromApi() async {
+    final listUrl = Uri.parse('https://www.googleapis.com/youtube/v3/captions').replace(queryParameters: {
+      'part': 'snippet',
+      'videoId': _videoId.value,
+      'key': AppConstants.youtubeApiKey,
+    });
+
+    final response = await http.get(listUrl);
+    if (response.statusCode != 200) {
+      _logger.w('Failed to list captions via Data API: ${response.statusCode}');
+      return [];
+    }
+
+    final data = json.decode(response.body);
+    final items = data['items'] as List<dynamic>?;
+    return items?.cast<Map<String, dynamic>>() ?? [];
+  }
+}

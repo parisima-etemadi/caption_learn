@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../features/settings/presentation/providers/theme_provider.dart';
+import '../../../video/presentation/widgets/youtube_auth_widget.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -15,6 +16,7 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         children: [
           _buildThemeSettings(context),
+          _buildYouTubeSettings(context),
         ],
       ),
     );
@@ -73,6 +75,20 @@ class SettingsScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildYouTubeSettings(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0),
+      child: YouTubeAuthWidget(
+        onAuthSuccess: () {
+          // Optionally show a success message or refresh video list
+        },
+        onAuthFailed: () {
+          // Handle auth failure if needed
+        },
       ),
     );
   }
