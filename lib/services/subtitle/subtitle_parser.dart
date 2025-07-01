@@ -8,6 +8,10 @@ class SubtitleParser {
     return _parseSrt(content);
   }
   
+  // Public methods for specific formats
+  static List<Subtitle> parseVtt(String content) => _parseVtt(content);
+  static List<Subtitle> parseSrv3(String content) => _parseXml(content);
+  
   static List<Subtitle> _parseXml(String content) {
     final regex = RegExp(r'<text.*?start="([^"]*)".*?dur="([^"]*)".*?>(.*?)</text>');
     return regex.allMatches(content).map((m) {
