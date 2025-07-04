@@ -13,10 +13,12 @@ class HiveService {
   // Box names
   static const String videosBoxName = 'videos';
   static const String vocabularyBoxName = 'vocabulary';
+  static const String generalDataBoxName = 'general_data';
 
   // Boxes
   late Box<VideoContent> _videosBox;
   late Box<VocabularyItem> _vocabularyBox;
+  late Box<dynamic> _generalDataBox;
 
   factory HiveService() {
     return _instance;
@@ -50,6 +52,7 @@ class HiveService {
     try {
       _videosBox = await Hive.openBox<VideoContent>(videosBoxName);
       _vocabularyBox = await Hive.openBox<VocabularyItem>(vocabularyBoxName);
+      _generalDataBox = await Hive.openBox<dynamic>(generalDataBoxName);
       _logger.i('Hive boxes opened successfully');
     } catch (e) {
       _logger.e('Failed to open Hive boxes', e);
@@ -62,6 +65,7 @@ class HiveService {
     try {
       await _videosBox.close();
       await _vocabularyBox.close();
+      await _generalDataBox.close();
       _logger.i('Hive boxes closed successfully');
     } catch (e) {
       _logger.e('Failed to close Hive boxes', e);
@@ -190,6 +194,44 @@ class HiveService {
       _logger.i('Deleted ${keysToDelete.length} vocabulary items for video $videoId');
     } catch (e) {
       _logger.e('Failed to delete vocabulary for video $videoId', e);
+      rethrow;
+    }
+  }
+  
+  // GENERAL DATA METHODS
+  
+  // Save generic data
+  Future<void> saveData(String key, dynamic value) async {
+    try {
+      await _generalDataBox.put(key, value);
+      _logger.i('Data saved to Hive: $key');
+    } catch (e) {
+      _logger.e('Failed to save data to Hive: $key', e);
+      rethrow;
+    }
+  }
+  
+  // Get generic data
+  dynamic getData(String key) {
+    try {
+      final value = _generalDataBox.get(key);
+      if (value != null) {
+        _logger.i('Data retrieved from Hive: $key');
+      }
+      return value;
+    } catch (e) {
+      _logger.e('Failed to get data from Hive: $key', e);
+      return null;
+    }
+  }
+  
+  // Delete generic data
+  Future<void> deleteData(String key) async {
+    try {
+      await _generalDataBox.delete(key);
+      _logger.i('Data deleted from Hive: $key');
+    } catch (e) {
+      _logger.e('Failed to delete data from Hive: $key', e);
       rethrow;
     }
   }

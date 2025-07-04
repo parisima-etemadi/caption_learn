@@ -13,6 +13,7 @@ import 'features/home/presentation/screens/home_screen.dart';
 import 'features/settings/presentation/providers/theme_provider.dart';
 import 'services/hive_service.dart';
 import 'services/storage_service.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +39,10 @@ void main() async {
     // Initialize StorageService (which opens the boxes) - this must succeed
     await StorageService().initialize();
     logger.i('StorageService initialized successfully');
+    
+    // Initialize AuthService to restore any saved tokens
+    await AuthService().initialize();
+    logger.i('AuthService initialized successfully');
     
     // Set preferred orientations
     await SystemChrome.setPreferredOrientations([
@@ -106,7 +111,7 @@ class CaptionLearnApp extends StatelessWidget {
           if (state.isAuthenticated) {
             return const HomeScreen();
           }
-          return const HomeScreen();
+          return const LoginScreen();
         },
       ),
     );

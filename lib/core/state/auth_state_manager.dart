@@ -21,6 +21,12 @@ class AuthStateManager extends BaseService {
   factory AuthStateManager() => _instance;
   AuthStateManager._internal() {
     _initializeAuthListener();
+    _initializeAuthService();
+  }
+  
+  /// Initialize auth service
+  Future<void> _initializeAuthService() async {
+    await _authService.initialize();
   }
   
   // State getters
@@ -28,6 +34,8 @@ class AuthStateManager extends BaseService {
   Stream<bool> get isLoading => _loadingController.stream;
   User? get currentUser => _authService.currentUser;
   bool get isAuthenticated => currentUser != null;
+  bool get hasYouTubeAccess => _authService.hasYouTubeAccess;
+  String? get youtubeAccessToken => _authService.youtubeAccessToken;
   
   /// Initialize authentication state listener
   void _initializeAuthListener() {
@@ -118,6 +126,26 @@ class AuthStateManager extends BaseService {
       throw AuthException('Invalid verification code', originalError: e);
     } finally {
       _setLoading(false);
+    }
+  }
+  
+  /// Request YouTube access for current user
+  Future<bool> requestYouTubeAccess() async {
+    try {
+      _setLoading(true);
+      return await _authService.requestYouTubeAccess();
+    } catch (e) {
+      logger.e('Failed to request YouTube access', e);
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  /// Refresh YouTube token if needed
+  Future<void> refreshYouTubeTokenIfNeeded() async {
+    if (!hasYouTubeAccess && isAuthenticated) {
+      await _authService.refreshYouTubeToken();
     }
   }
   

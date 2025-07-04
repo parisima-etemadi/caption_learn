@@ -3,10 +3,24 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../core/constants/app_constants.dart';
 import '../core/services/base_service.dart';
+import 'hive_service.dart';
 
 class AuthService extends BaseService {
+  static final AuthService _instance = AuthService._internal();
+  factory AuthService() => _instance;
+  AuthService._internal();
+  
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(clientId: AppConstants.googleClientId);
+  
+  // Single GoogleSignIn instance with all required scopes including YouTube
+  late final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: AppConstants.googleClientId,
+    scopes: [
+      'email',
+      'https://www.googleapis.com/auth/youtube.force-ssl',
+      'https://www.googleapis.com/auth/youtube.readonly',
+    ],
+  );
   
   @override
   String get serviceName => 'AuthService';
@@ -14,11 +28,36 @@ class AuthService extends BaseService {
   // Store verification ID for phone auth
   String? _verificationId;
   
+  // Cache for YouTube access token
+  String? _youtubeAccessToken;
+  DateTime? _tokenExpiry;
+  
   // Get current user
   User? get currentUser => _auth.currentUser;
   
   // Auth state changes stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+  
+  // Check if user has YouTube access
+  bool get hasYouTubeAccess => _youtubeAccessToken != null && 
+      (_tokenExpiry == null || _tokenExpiry!.isAfter(DateTime.now()));
+  
+  // Get YouTube access token
+  String? get youtubeAccessToken => hasYouTubeAccess ? _youtubeAccessToken : null;
+  
+  /// Initialize service and restore any saved tokens
+  Future<void> initialize() async {
+    try {
+      // Check if user is already signed in
+      if (currentUser != null) {
+        await _restoreYouTubeToken();
+      }
+      
+      logger.i('Auth service initialized');
+    } catch (e) {
+      logger.e('Failed to initialize auth service', e);
+    }
+  }
   
   // Send phone verification code
   Future<void> verifyPhoneNumber({
@@ -93,20 +132,32 @@ class AuthService extends BaseService {
     }
   }
   
-  // Sign in with Google
+  // Sign in with Google (includes YouTube permissions)
   Future<UserCredential> signInWithGoogle() async {
     try {
+      // Sign out from any existing Google session to ensure fresh consent
+      await _googleSignIn.signOut();
+      
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) throw Exception('Google sign in aborted');
       
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      // Store YouTube access token
+      if (googleAuth.accessToken != null) {
+        await _saveYouTubeToken(googleAuth.accessToken!);
+      }
+      
+      // Create Firebase credential
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
       
+      // Sign in to Firebase
       final userCredential = await _auth.signInWithCredential(credential);
       logger.i('Signed in with Google: ${userCredential.user?.uid}');
+      
       return userCredential;
     } catch (e) {
       logger.e('Error signing in with Google', e);
@@ -142,10 +193,112 @@ class AuthService extends BaseService {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
+      await _googleSignIn.signOut();
+      await _clearYouTubeToken();
       logger.i('User signed out');
     } catch (e) {
       logger.e('Error signing out', e);
       rethrow;
+    }
+  }
+  
+  /// Request YouTube permissions for existing user
+  Future<bool> requestYouTubeAccess() async {
+    try {
+      if (!(_auth.currentUser?.providerData.any((info) => info.providerId == 'google.com') ?? false)) {
+        logger.w('User is not signed in with Google');
+        return false;
+      }
+      
+      // Sign in again to get YouTube permissions
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        logger.w('User cancelled YouTube permission request');
+        return false;
+      }
+      
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      // Store YouTube access token
+      if (googleAuth.accessToken != null) {
+        await _saveYouTubeToken(googleAuth.accessToken!);
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      logger.e('Failed to request YouTube access', e);
+      return false;
+    }
+  }
+  
+  /// Refresh YouTube access token
+  Future<void> refreshYouTubeToken() async {
+    try {
+      if (_googleSignIn.currentUser == null) {
+        // Try to sign in silently
+        await _googleSignIn.signInSilently();
+      }
+      
+      if (_googleSignIn.currentUser != null) {
+        final auth = await _googleSignIn.currentUser!.authentication;
+        if (auth.accessToken != null) {
+          await _saveYouTubeToken(auth.accessToken!);
+          logger.i('YouTube token refreshed');
+        }
+      }
+    } catch (e) {
+      logger.e('Failed to refresh YouTube token', e);
+    }
+  }
+  
+  /// Save YouTube token to persistent storage
+  Future<void> _saveYouTubeToken(String token) async {
+    try {
+      _youtubeAccessToken = token;
+      _tokenExpiry = DateTime.now().add(const Duration(minutes: 55)); // Tokens typically last 1 hour
+      
+      // Save to Hive for persistence
+      await HiveService().saveData('youtube_access_token', token);
+      await HiveService().saveData('youtube_token_expiry', _tokenExpiry!.toIso8601String());
+      
+      logger.i('YouTube token saved');
+    } catch (e) {
+      logger.e('Failed to save YouTube token', e);
+    }
+  }
+  
+  /// Restore YouTube token from storage
+  Future<void> _restoreYouTubeToken() async {
+    try {
+      final token = await HiveService().getData('youtube_access_token');
+      final expiryStr = await HiveService().getData('youtube_token_expiry');
+      
+      if (token != null && expiryStr != null) {
+        final expiry = DateTime.tryParse(expiryStr);
+        if (expiry != null && expiry.isAfter(DateTime.now())) {
+          _youtubeAccessToken = token;
+          _tokenExpiry = expiry;
+          logger.i('YouTube token restored from storage');
+        } else {
+          // Token expired, try to refresh
+          await refreshYouTubeToken();
+        }
+      }
+    } catch (e) {
+      logger.e('Failed to restore YouTube token', e);
+    }
+  }
+  
+  /// Clear YouTube token
+  Future<void> _clearYouTubeToken() async {
+    try {
+      _youtubeAccessToken = null;
+      _tokenExpiry = null;
+      await HiveService().deleteData('youtube_access_token');
+      await HiveService().deleteData('youtube_token_expiry');
+    } catch (e) {
+      logger.e('Failed to clear YouTube token', e);
     }
   }
 }
