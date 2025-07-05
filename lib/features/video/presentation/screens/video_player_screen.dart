@@ -166,10 +166,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
       bottomNavigationBar: CustomBottomNavigation(
         currentIndex: _activeNavIndex,
         showSubtitlesNotifier: _playerManager.showSubtitlesNotifier,
+        isLoopingNotifier: _playerManager.isLoopingNotifier,
         onTap: (index) {
           if (index == 1) {
             // Handle subtitle toggle without changing the main active index
             _playerManager.toggleSubtitles();
+          } else if (index == 0 || index == 2) {
+            // Handle repeat and loop actions
+            _playerManager.toggleLooping();
+            setState(() {
+              _activeNavIndex = 2; // Keep loop as the main active button
+            });
           } else {
             // Set the active index for other buttons
             setState(() {

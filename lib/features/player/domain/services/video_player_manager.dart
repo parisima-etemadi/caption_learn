@@ -31,6 +31,7 @@ class VideoPlayerManager {
   final ValueNotifier<Subtitle?> currentSubtitleNotifier = ValueNotifier(null);
   final ValueNotifier<int> currentPositionNotifier = ValueNotifier(0);
   final ValueNotifier<bool> showSubtitlesNotifier = ValueNotifier(true);
+  final ValueNotifier<bool> isLoopingNotifier = ValueNotifier(false);
   Timer? positionTimer;
   StreamSubscription? _ytStateSubscription;
   bool _isDisposed = false;
@@ -204,7 +205,8 @@ class VideoPlayerManager {
     if (isYoutubeVideo && youtubeController != null) {
       positionTimer?.cancel(); // Cancel any existing timer
 
-      positionTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
+      // Check position more frequently for smoother looping
+      positionTimer = Timer.periodic(const Duration(milliseconds: 250), (timer) async {
         if (youtubeController == null || _isDisposed) {
           timer.cancel();
           return;
@@ -214,6 +216,16 @@ class VideoPlayerManager {
         if (playerState == PlayerState.playing) {
           final position = (await youtubeController!.currentTime) * 1000;
           currentPositionNotifier.value = position.toInt();
+
+          // If looping is active, it takes precedence over advancing subtitles.
+          if (isLoopingNotifier.value && currentSubtitleNotifier.value != null) {
+            // When the video passes the end of the current subtitle, loop it back.
+            if (position >= currentSubtitleNotifier.value!.endTime) {
+              seekYouTubeToTime(currentSubtitleNotifier.value!.startTime);
+              return; // Crucial: Prevents the logic below from running and breaking the loop.
+            }
+          }
+          
           final subtitles = videoContent?.subtitles ?? [];
 
           int index = subtitles.indexWhere(
@@ -226,6 +238,12 @@ class VideoPlayerManager {
             currentSubtitleNotifier.value =
                 index != -1 ? subtitles[index] : null;
             onSubtitleIndexChanged();
+            
+            // If the subtitle changes (e.g., user seeks manually), disable looping.
+            // This is now safe because it won't be reached during an active loop.
+            if (isLoopingNotifier.value) {
+              isLoopingNotifier.value = false;
+            }
           }
         }
       });
@@ -234,6 +252,10 @@ class VideoPlayerManager {
 
   void toggleSubtitles() {
     showSubtitlesNotifier.value = !showSubtitlesNotifier.value;
+  }
+
+  void toggleLooping() {
+    isLoopingNotifier.value = !isLoopingNotifier.value;
   }
 
   /// Seek to specific time in YouTube video

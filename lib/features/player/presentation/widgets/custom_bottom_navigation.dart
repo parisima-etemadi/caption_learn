@@ -4,12 +4,14 @@ class CustomBottomNavigation extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
   final ValueNotifier<bool> showSubtitlesNotifier;
+  final ValueNotifier<bool> isLoopingNotifier;
 
   const CustomBottomNavigation({
     Key? key,
     required this.currentIndex,
     required this.onTap,
     required this.showSubtitlesNotifier,
+    required this.isLoopingNotifier,
   }) : super(key: key);
 
   @override
@@ -37,7 +39,13 @@ class CustomBottomNavigation extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildNavItem(context, 0, Icons.repeat, 'Repeat'),
+                ValueListenableBuilder<bool>(
+                  valueListenable: isLoopingNotifier,
+                  builder: (context, isLooping, _) {
+                    return _buildNavItem(context, 0, Icons.repeat, 'Repeat',
+                        forceActive: isLooping);
+                  },
+                ),
                 ValueListenableBuilder<bool>(
                   valueListenable: showSubtitlesNotifier,
                   builder: (context, showSubtitles, _) {
