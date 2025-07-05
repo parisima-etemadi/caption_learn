@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 class SubtitleDisplay extends StatelessWidget {
   final Subtitle? currentSubtitle;
   final Function(String) onWordTap;
+  final int currentPositionMs;
 
   const SubtitleDisplay({
     Key? key,
     required this.currentSubtitle,
     required this.onWordTap,
+    required this.currentPositionMs,
   }) : super(key: key);
 
   @override
@@ -24,7 +26,7 @@ class SubtitleDisplay extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildTappableSubtitle(context, currentSubtitle!.text),
+          _buildTappableSubtitle(context),
           if (currentSubtitle!.translation != null &&
               currentSubtitle!.translation!.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -43,9 +45,21 @@ class SubtitleDisplay extends StatelessWidget {
     );
   }
 
-  Widget _buildTappableSubtitle(BuildContext context, String text) {
-    final words = text.split(' ');
-    
+  Widget _buildTappableSubtitle(BuildContext context) {
+    final timedWords = currentSubtitle!.words;
+    if (timedWords.isEmpty) {
+      return Text(
+        currentSubtitle!.text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 22,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          height: 1.4,
+        ),
+      );
+    }
+
     return RichText(
       textAlign: TextAlign.center,
       text: TextSpan(
@@ -55,25 +69,26 @@ class SubtitleDisplay extends StatelessWidget {
           fontWeight: FontWeight.bold,
           height: 1.4,
         ),
-        children: words.map((word) {
-          final cleanWord = word.replaceAll(RegExp(r'[^\w\s]'), '');
-          
-          if (cleanWord.isEmpty) {
-            return TextSpan(text: '$word ');
-          }
-          
-          return WidgetSpan(
+        children: timedWords.expand((word) {
+          final isHighlighted = currentPositionMs >= word.startTime &&
+              currentPositionMs < word.endTime;
+          final cleanWord = word.text.replaceAll(RegExp(r'[^\w\s]'), '');
+
+          final span = WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
             child: GestureDetector(
-              onTap: () => onWordTap(cleanWord),
+              onTap: () => onWordTap(cleanWord.isEmpty ? word.text : cleanWord),
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 2.0),
-                padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+                margin: const EdgeInsets.symmetric(horizontal: 1.0),
+                padding: const EdgeInsets.symmetric(horizontal: 3.0, vertical: 2.0),
                 decoration: BoxDecoration(
-                  color: Colors.transparent, // No highlight by default
+                  color: isHighlighted
+                      ? Colors.blueAccent.withOpacity(0.7)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  word,
+                  word.text,
                   style: const TextStyle(
                     fontSize: 22,
                     color: Colors.white,
@@ -83,7 +98,9 @@ class SubtitleDisplay extends StatelessWidget {
               ),
             ),
           );
-        }).toList(),
+
+          return [span, const TextSpan(text: ' ')];
+        }).toList()..removeLast(),
       ),
     );
   }

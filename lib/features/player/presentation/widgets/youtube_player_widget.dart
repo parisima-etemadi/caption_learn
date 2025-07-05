@@ -79,9 +79,15 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
         ValueListenableBuilder<Subtitle?>(
           valueListenable: _playerManager.currentSubtitleNotifier,
           builder: (context, subtitle, _) {
-            return SubtitleDisplay(
-              currentSubtitle: subtitle,
-              onWordTap: (word) => _showVocabularyDialog(word),
+            return ValueListenableBuilder<int>(
+              valueListenable: _playerManager.currentPositionNotifier,
+              builder: (context, position, _) {
+                return SubtitleDisplay(
+                  currentSubtitle: subtitle,
+                  onWordTap: (word) => _showVocabularyDialog(word),
+                  currentPositionMs: position,
+                );
+              },
             );
           },
         ),

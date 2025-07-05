@@ -3,6 +3,18 @@ import 'package:hive/hive.dart';
 
 part 'video_content.g.dart';
 
+class TimedWord {
+  final String text;
+  final int startTime;
+  final int endTime;
+
+  TimedWord({
+    required this.text,
+    required this.startTime,
+    required this.endTime,
+  });
+}
+
 @HiveType(typeId: 1)
 class Subtitle {
   @HiveField(0)
@@ -23,6 +35,49 @@ class Subtitle {
     required this.text,
     this.translation, // Add to constructor
   });
+
+  List<TimedWord> get words {
+    final wordList = <TimedWord>[];
+    // Split by space, but also handle multiple spaces and leading/trailing spaces.
+    final textWords =
+        text.trim().split(' ').where((word) => word.isNotEmpty).toList();
+
+    if (textWords.isEmpty) {
+      return wordList;
+    }
+
+    final totalDuration = endTime - startTime;
+    final totalLength = text.replaceAll(' ', '').length;
+
+    if (totalLength == 0) {
+      return textWords
+          .map((word) =>
+              TimedWord(text: word, startTime: startTime, endTime: endTime))
+          .toList();
+    }
+
+    final timePerChar = totalDuration / totalLength;
+    int currentWordStartTime = startTime;
+
+    for (int i = 0; i < textWords.length; i++) {
+      final word = textWords[i];
+      final isLastWord = i == textWords.length - 1;
+
+      final wordDuration = (word.length * timePerChar).round();
+      final wordEndTime =
+          isLastWord ? endTime : currentWordStartTime + wordDuration;
+
+      wordList.add(
+        TimedWord(
+          text: word,
+          startTime: currentWordStartTime,
+          endTime: wordEndTime,
+        ),
+      );
+      currentWordStartTime = wordEndTime;
+    }
+    return wordList;
+  }
 
   factory Subtitle.fromJson(Map<String, dynamic> json) {
     return Subtitle(

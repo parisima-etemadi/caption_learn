@@ -29,6 +29,7 @@ class VideoPlayerManager {
   bool isYoutubeVideo = false;
   int currentSubtitleIndex = -1;
   final ValueNotifier<Subtitle?> currentSubtitleNotifier = ValueNotifier(null);
+  final ValueNotifier<int> currentPositionNotifier = ValueNotifier(0);
   Timer? positionTimer;
   StreamSubscription? _ytStateSubscription;
   bool _isDisposed = false;
@@ -211,6 +212,7 @@ class VideoPlayerManager {
         final playerState = await youtubeController!.playerState;
         if (playerState == PlayerState.playing) {
           final position = (await youtubeController!.currentTime) * 1000;
+          currentPositionNotifier.value = position.toInt();
           final subtitles = videoContent?.subtitles ?? [];
 
           int index = subtitles.indexWhere(
