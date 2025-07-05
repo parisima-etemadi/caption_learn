@@ -19,9 +19,18 @@ class SubtitleDisplay extends StatelessWidget {
       return const SizedBox(height: 80); // Placeholder when no subtitle
     }
 
+    final theme = Theme.of(context);
+    final isLightTheme = theme.brightness == Brightness.light;
+
+    final backgroundColor = isLightTheme
+        ? Colors.grey.shade200.withOpacity(0.9)
+        : Colors.black.withOpacity(0.8);
+    
+    final textColor = isLightTheme ? Colors.black87 : Colors.white;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: Colors.black.withOpacity(0.7),
+      color: backgroundColor,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -47,6 +56,12 @@ class SubtitleDisplay extends StatelessWidget {
 
   Widget _buildTappableSubtitle(BuildContext context) {
     final timedWords = currentSubtitle!.words;
+    final theme = Theme.of(context);
+    final isLightTheme = theme.brightness == Brightness.light;
+    final textColor = isLightTheme ? Colors.black87 : Colors.white;
+    final highlightColor = theme.colorScheme.secondary;
+
+
     if (timedWords.isEmpty) {
       return Text(
         currentSubtitle!.text,
@@ -63,11 +78,12 @@ class SubtitleDisplay extends StatelessWidget {
     return RichText(
       textAlign: TextAlign.center,
       text: TextSpan(
-        style: const TextStyle(
-          fontSize: 22,
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          height: 1.4,
+        style: TextStyle(
+          fontSize: 24,
+          color: textColor,
+          fontWeight: FontWeight.w500,
+          height: 1.5,
+          letterSpacing: 0.5,
         ),
         children: timedWords.expand((word) {
           final isHighlighted = currentPositionMs >= word.startTime &&
@@ -80,19 +96,19 @@ class SubtitleDisplay extends StatelessWidget {
               onTap: () => onWordTap(cleanWord.isEmpty ? word.text : cleanWord),
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 1.0),
-                padding: const EdgeInsets.symmetric(horizontal: 3.0, vertical: 2.0),
+                padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
                 decoration: BoxDecoration(
                   color: isHighlighted
-                      ? Colors.blueAccent.withOpacity(0.7)
+                      ? highlightColor.withOpacity(0.3)
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   word.text,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                  style: TextStyle(
+                    fontSize: 24,
+                    color: textColor,
+                    fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w500,
                   ),
                 ),
               ),
