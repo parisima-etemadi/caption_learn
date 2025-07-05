@@ -30,6 +30,7 @@ class VideoPlayerManager {
   int currentSubtitleIndex = -1;
   final ValueNotifier<Subtitle?> currentSubtitleNotifier = ValueNotifier(null);
   final ValueNotifier<int> currentPositionNotifier = ValueNotifier(0);
+  final ValueNotifier<bool> showSubtitlesNotifier = ValueNotifier(true);
   Timer? positionTimer;
   StreamSubscription? _ytStateSubscription;
   bool _isDisposed = false;
@@ -231,6 +232,9 @@ class VideoPlayerManager {
     }
   }
 
+  void toggleSubtitles() {
+    showSubtitlesNotifier.value = !showSubtitlesNotifier.value;
+  }
 
   /// Seek to specific time in YouTube video
   void seekYouTubeToTime(int milliseconds) {

@@ -165,11 +165,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
             ),
       bottomNavigationBar: CustomBottomNavigation(
         currentIndex: _activeNavIndex,
+        showSubtitlesNotifier: _playerManager.showSubtitlesNotifier,
         onTap: (index) {
-          setState(() {
-            _activeNavIndex = index;
-          });
-        },    
+          if (index == 1) {
+            // Handle subtitle toggle without changing the main active index
+            _playerManager.toggleSubtitles();
+          } else {
+            // Set the active index for other buttons
+            setState(() {
+              _activeNavIndex = index;
+            });
+          }
+        },
       ),
     );
   }

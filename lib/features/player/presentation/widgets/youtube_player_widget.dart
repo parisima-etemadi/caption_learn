@@ -76,16 +76,24 @@ class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
         ),
 
         // Subtitles display
-        ValueListenableBuilder<Subtitle?>(
-          valueListenable: _playerManager.currentSubtitleNotifier,
-          builder: (context, subtitle, _) {
-            return ValueListenableBuilder<int>(
-              valueListenable: _playerManager.currentPositionNotifier,
-              builder: (context, position, _) {
-                return SubtitleDisplay(
-                  currentSubtitle: subtitle,
-                  onWordTap: (word) => _showVocabularyDialog(word),
-                  currentPositionMs: position,
+        ValueListenableBuilder<bool>(
+          valueListenable: _playerManager.showSubtitlesNotifier,
+          builder: (context, showSubtitles, _) {
+            if (!showSubtitles) {
+              return const SizedBox(height: 80); // Match height of subtitle display
+            }
+            return ValueListenableBuilder<Subtitle?>(
+              valueListenable: _playerManager.currentSubtitleNotifier,
+              builder: (context, subtitle, _) {
+                return ValueListenableBuilder<int>(
+                  valueListenable: _playerManager.currentPositionNotifier,
+                  builder: (context, position, _) {
+                    return SubtitleDisplay(
+                      currentSubtitle: subtitle,
+                      onWordTap: (word) => _showVocabularyDialog(word),
+                      currentPositionMs: position,
+                    );
+                  },
                 );
               },
             );

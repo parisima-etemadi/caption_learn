@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class CustomBottomNavigation extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
+  final ValueNotifier<bool> showSubtitlesNotifier;
 
   const CustomBottomNavigation({
     Key? key,
     required this.currentIndex,
     required this.onTap,
+    required this.showSubtitlesNotifier,
   }) : super(key: key);
 
   @override
@@ -36,8 +38,19 @@ class CustomBottomNavigation extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 _buildNavItem(context, 0, Icons.repeat, 'Repeat'),
-                _buildNavItem(context, 1, Icons.subtitles, 'Subtitles'),
-                SizedBox(width: 70), // Space for the middle elevated button
+                ValueListenableBuilder<bool>(
+                  valueListenable: showSubtitlesNotifier,
+                  builder: (context, showSubtitles, _) {
+                    return _buildNavItem(
+                      context,
+                      1,
+                      Icons.subtitles,
+                      'Subtitles',
+                      forceActive: showSubtitles,
+                    );
+                  },
+                ),
+                const SizedBox(width: 70), // Space for the middle elevated button
                 _buildNavItem(context, 3, Icons.headphones, 'Listen'),
                 _buildNavItem(context, 4, Icons.mic, 'Say it'),
               ],
@@ -98,8 +111,14 @@ class CustomBottomNavigation extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(BuildContext context, int index, IconData icon, String label) {
-    bool isActive = currentIndex == index;
+  Widget _buildNavItem(
+    BuildContext context,
+    int index,
+    IconData icon,
+    String label, {
+    bool? forceActive,
+  }) {
+    bool isActive = forceActive ?? currentIndex == index;
     
     return GestureDetector(
       onTap: () => onTap(index),
