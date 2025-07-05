@@ -5,6 +5,8 @@ import 'package:caption_learn/features/vocabulary/presentation/widgets/vocabular
 import 'package:caption_learn/services/storage_service.dart';
 import 'package:caption_learn/features/player/presentation/widgets/custom_bottom_navigation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../player/presentation/widgets/subtitle_display.dart';
 import '../../../player/presentation/widgets/youtube_player_widget.dart';
 import '../../../vocabulary/presentation/screens/vocabulary_screen.dart';
 
@@ -70,7 +72,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
     });
     
     if (_playerManager.isYoutubeVideo && _playerManager.youtubeController != null) {
-      _playerManager.youtubeController!.pause();
+      _playerManager.youtubeController!.pauseVideo();
     } else if (_playerManager.controller != null) {
       _playerManager.controller!.pause();
     }
@@ -90,7 +92,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
         onCancel: () {
           Navigator.of(context).pop();
           if (_playerManager.isYoutubeVideo) {
-            _playerManager.youtubeController?.play();
+            _playerManager.youtubeController?.playVideo();
           } else {
             _playerManager.controller?.play();
           }
@@ -118,7 +120,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
       );
       
       if (_playerManager.isYoutubeVideo) {
-        _playerManager.youtubeController?.play();
+        _playerManager.youtubeController?.playVideo();
       } else {
         _playerManager.controller?.play();
       }
@@ -151,12 +153,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
       ),
       body: _playerManager.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Expanded(
-                  child: _buildVideoPlayerSection(),
-                ),
-              ],
+          : Provider.value(
+              value: _playerManager,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: _buildVideoPlayerSection(),
+                  ),
+                ],
+              ),
             ),
       bottomNavigationBar: CustomBottomNavigation(
         currentIndex: _activeNavIndex,
@@ -179,19 +184,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
           color: Colors.black,
           width: double.infinity,
           child: _playerManager.isInitialized && _playerManager.youtubeController != null
-              ? YouTubePlayerWidget(
+              ? YoutubePlayerWidget(
                   key: playerKey, // Add unique key
                   controller: _playerManager.youtubeController,
-                  isInitialized: _playerManager.isInitialized,
-                  onReady: () {
-                    if (!_playerManager.isYoutubePlayerReady) {
-                      setState(() {
-                        _playerManager.isYoutubePlayerReady = true;
-                        _playerManager.youtubeController?.play();
-                      });
-                      _playerManager.setupYouTubeListener();
-                    }
-                  },
                 )
               : const Center(
                   child: Text(

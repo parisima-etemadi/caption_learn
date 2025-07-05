@@ -30,7 +30,10 @@ class VideoService extends BaseService {
   ///
   /// Fetches video metadata and then uses the [_SubtitleOrchestrator]
   /// to attempt various strategies for extracting subtitles.
-  Future<VideoContent> processVideoUrl(String url) async {
+  Future<VideoContent> processVideoUrl(
+    String url, {
+    String? manualSubtitleContent,
+  }) async {
     if (!YoutubeUtils.isYoutubeUrl(url)) {
       throw const VideoException('Only YouTube URLs are supported');
     }
@@ -53,17 +56,42 @@ class VideoService extends BaseService {
       final video = await yt.videos.get(videoId);
       logger.i('Video title: ${video.title}');
 
-      final orchestrator = _SubtitleOrchestrator(videoId, logger);
-      final subtitleResult = await orchestrator.extractSubtitles();
+      List<Subtitle> subtitles = [];
+      String? subtitleWarning;
+
+      if (manualSubtitleContent != null && manualSubtitleContent.isNotEmpty) {
+        logger.i('Parsing manual subtitle content.');
+        try {
+          subtitles = SubtitleParser.parse(manualSubtitleContent);
+          if (subtitles.isEmpty) {
+            subtitleWarning = 'The provided subtitle file appears to be empty or in an unsupported format.';
+          }
+        } catch (e) {
+          logger.e('Error parsing manual subtitle file', e);
+          subtitleWarning = 'Failed to parse the subtitle file. Please check the format.';
+        }
+      } else {
+        final orchestrator = _SubtitleOrchestrator(videoId, logger);
+        final subtitleResult = await orchestrator.extractSubtitles();
+        subtitles = subtitleResult.subtitles;
+        subtitleWarning = subtitleResult.warning;
+      }
+
+      // Simulate translation for each subtitle
+      if (subtitles.isNotEmpty) {
+        subtitles = subtitles
+            .map((s) => s.copyWith(translation: 'Translated: ${s.text}'))
+            .toList();
+      }
 
       final result = VideoContent(
         id: videoId.value,
         title: video.title,
         sourceUrl: url,
-        subtitles: subtitleResult.subtitles,
+        subtitles: subtitles,
         source: VideoSource.youtube,
         dateAdded: DateTime.now(),
-        subtitleWarning: subtitleResult.warning,
+        subtitleWarning: subtitleWarning,
       );
 
       _cache[videoId.value] = result;
@@ -177,21 +205,31 @@ class _SubtitleOrchestrator {
   /// Strategy 2: Use the official YouTube Data API with user authentication.
   Future<({List<Subtitle> subtitles, String? warning})> _tryOAuth() async {
     _logger.i("Attempting strategy: OAuth");
-    if (!_oauthService.isAuthenticated) {
-      _logger.i("Skipping OAuth: User not authenticated.");
-      final tracks = await _fetchCaptionTracksFromApi();
-      if (tracks.isNotEmpty) {
-        return (subtitles: <Subtitle>[], warning: 'Subtitles available but require YouTube authentication. Please sign in via Settings.');
-      }
+
+    // First, check if there are any caption tracks at all using the public API.
+    // This avoids prompting for login if no captions exist.
+    final tracks = await _fetchCaptionTracksFromApi();
+    if (tracks.isEmpty) {
+      _logger.i("No caption tracks found via public API. Skipping OAuth.");
       return (subtitles: <Subtitle>[], warning: null);
     }
 
-    final captionTracks = await _fetchCaptionTracksFromApi();
-    if (captionTracks.isEmpty) return (subtitles: <Subtitle>[], warning: null);
+    // If tracks exist but the user is not authenticated, return a specific warning.
+    if (!_oauthService.isAuthenticated) {
+      _logger.i("User not authenticated for OAuth, but tracks are available.");
+      return (
+        subtitles: <Subtitle>[],
+        warning:
+            'This video has subtitles that require you to sign in with Google.'
+      );
+    }
+    
+    _logger.i("User is authenticated. Proceeding with OAuth to download captions.");
 
-    final track = captionTracks.firstWhere(
+    // Since we are authenticated, we can now try to download the best track.
+    final track = tracks.firstWhere(
         (t) => t['language'] != null && (t['language'] as String).startsWith('en'),
-        orElse: () => captionTracks.first);
+        orElse: () => tracks.first);
 
     final captionId = track['id'] as String;
     final captionData = await _oauthService.downloadCaptions(captionId);
@@ -255,3 +293,4 @@ class _SubtitleOrchestrator {
     return items?.cast<Map<String, dynamic>>() ?? [];
   }
 }
+

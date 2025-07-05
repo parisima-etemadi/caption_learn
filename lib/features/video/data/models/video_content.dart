@@ -14,29 +14,45 @@ class Subtitle {
   @HiveField(2)
   final String text;
 
+  @HiveField(3)
+  final String? translation; // Add translation field
+
   const Subtitle({
     required this.startTime,
     required this.endTime,
     required this.text,
+    this.translation, // Add to constructor
   });
 
   factory Subtitle.fromJson(Map<String, dynamic> json) {
     return Subtitle(
-      startTime: json['startTime'] ?? 0,
-      endTime: json['endTime'] ?? 0,
-      text: json['text'] ?? '',
+      startTime: json['startTime'],
+      endTime: json['endTime'],
+      text: json['text'],
+      translation: json['translation'], // Add to fromJson
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'startTime': startTime, 'endTime': endTime, 'text': text};
+    return {
+      'startTime': startTime,
+      'endTime': endTime,
+      'text': text,
+      'translation': translation, // Add to toJson
+    };
   }
 
-  Subtitle copyWith({int? startTime, int? endTime, String? text}) {
+  Subtitle copyWith({
+    int? startTime,
+    int? endTime,
+    String? text,
+    String? translation, // Add to copyWith
+  }) {
     return Subtitle(
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       text: text ?? this.text,
+      translation: translation ?? this.translation, // Add to copyWith
     );
   }
 }

@@ -14,7 +14,7 @@ class AuthService extends BaseService {
   
   // Single GoogleSignIn instance with all required scopes including YouTube
   late final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: AppConstants.googleClientId,
+    serverClientId: AppConstants.googleAndroidClientId,
     scopes: [
       'email',
       'https://www.googleapis.com/auth/youtube.force-ssl',

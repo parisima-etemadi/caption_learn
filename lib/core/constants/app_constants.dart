@@ -13,7 +13,8 @@ class AppConstants {
   static const double smallPadding = 8.0;
   
   // Auth configuration
-  static const String googleClientId = '1028174393649-3cu65svme7gqnjb847fkeid9te7jrlgv.apps.googleusercontent.com';
+  static const String googleIosClientId = '1028174393649-3cu65svme7gqnjb847fkeid9te7jrlgv.apps.googleusercontent.com';
+  static const String googleAndroidClientId = '1028174393649-666qpep9r76uf5646468vgbtammt4hiv.apps.googleusercontent.com';
   
   // YouTube API configuration
   static const String youtubeApiKey = 'AIzaSyC8ZhPsi-SgQDP7I85d9ftZMdnc7rf4eks';

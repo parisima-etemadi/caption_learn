@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../services/storage_service.dart';
 import '../../../vocabulary/models/vocabulary_item.dart';
@@ -27,10 +27,12 @@ class VideoPlayerManager {
   bool isInitialized = false;
   bool isLoading = true;
   bool isYoutubeVideo = false;
-  bool isYoutubePlayerReady = false;
   int currentSubtitleIndex = -1;
+  final ValueNotifier<Subtitle?> currentSubtitleNotifier = ValueNotifier(null);
   Timer? positionTimer;
+  StreamSubscription? _ytStateSubscription;
   bool _isDisposed = false;
+  bool _isYouTubeListenerSetup = false;
   
   VideoPlayerManager({
     required this.videoId,
@@ -103,48 +105,50 @@ class VideoPlayerManager {
 
 
 // Update the initializeYouTubeVideo method:
-Future<void> initializeYouTubeVideo(BuildContext context) async {
-  if (_isDisposed) return;
-  
-  final ytVideoId = YoutubePlayer.convertUrlToId(videoContent!.sourceUrl);
-  if (ytVideoId != null) {
-    // Dispose existing controller if any
-    youtubeController?.dispose();
-    
-    isYoutubePlayerReady = false;
-
-    youtubeController = YoutubePlayerController(
-      initialVideoId: ytVideoId,
-      flags: const YoutubePlayerFlags(
+  Future<void> initializeYouTubeVideo(BuildContext context) async {
+    final ytVideoId = YoutubePlayerController.convertUrlToId(videoContent!.sourceUrl);
+    if (ytVideoId != null) {
+      youtubeController = YoutubePlayerController.fromVideoId(
+        videoId: ytVideoId,
         autoPlay: false,
-        mute: false,
-        disableDragSeek: false,
-        loop: false,
-        isLive: false,
-        forceHD: false,
-        enableCaption: true,
-      ),
-    );
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+          strictRelatedVideos: true,
+        ),
+      );
 
-    isInitialized = true;
-    onInitialized();
+      _ytStateSubscription = youtubeController!.stream.listen((event) {
+        // Player is ready when it's cued or playing for the first time
+        if (!_isYouTubeListenerSetup &&
+            (event.playerState == PlayerState.cued ||
+                event.playerState == PlayerState.playing)) {
+          _logger.i("YouTube player is ready. Setting up subtitle listener.");
+          setupYouTubeListener();
+          _isYouTubeListenerSetup = true;
+        }
+      });
 
-    if (videoContent!.subtitles.isEmpty) {
-      _logger.i('No subtitles found for this video');
+      isInitialized = true;
+      onInitialized();
+
+      if (videoContent!.subtitles.isEmpty) {
+        _logger.i('No subtitles found for this video');
+      }
+    } else {
+      _showError(context, 'Invalid YouTube URL');
     }
-  } else {
-    _showError(context, 'Invalid YouTube URL');
   }
-}
 
 // Update the dispose method:
-void dispose() {
-  _isDisposed = true;
-  positionTimer?.cancel();
-  youtubeController?.dispose();
-  controller?.dispose();
-  _logger.d('Disposed player resources');
-}
+  void dispose() {
+    _isDisposed = true;
+    positionTimer?.cancel();
+    _ytStateSubscription?.cancel();
+    youtubeController?.close();
+    controller?.dispose();
+    _logger.d('Disposed player resources');
+  }
 
   /// Validate and fix any subtitle timing issues
   void validateAndFixSubtitles() {
@@ -198,16 +202,15 @@ void dispose() {
     if (isYoutubeVideo && youtubeController != null) {
       positionTimer?.cancel(); // Cancel any existing timer
 
-      positionTimer = Timer.periodic(const Duration(milliseconds: 500), (
-        timer,
-      ) {
-        if (youtubeController == null) {
+      positionTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
+        if (youtubeController == null || _isDisposed) {
           timer.cancel();
           return;
         }
-
-        if (youtubeController!.value.isPlaying) {
-          final position = youtubeController!.value.position.inMilliseconds;
+        
+        final playerState = await youtubeController!.playerState;
+        if (playerState == PlayerState.playing) {
+          final position = (await youtubeController!.currentTime) * 1000;
           final subtitles = videoContent?.subtitles ?? [];
 
           int index = subtitles.indexWhere(
@@ -217,6 +220,8 @@ void dispose() {
 
           if (index != currentSubtitleIndex) {
             currentSubtitleIndex = index;
+            currentSubtitleNotifier.value =
+                index != -1 ? subtitles[index] : null;
             onSubtitleIndexChanged();
           }
         }
@@ -224,13 +229,14 @@ void dispose() {
     }
   }
 
+
   /// Seek to specific time in YouTube video
   void seekYouTubeToTime(int milliseconds) {
-    if (youtubeController != null && isYoutubePlayerReady) {
-      youtubeController!.seekTo(Duration(milliseconds: milliseconds));
+    if (youtubeController != null) {
+      youtubeController!.seekTo(seconds: milliseconds / 1000, allowSeekAhead: true);
 
       Future.delayed(const Duration(milliseconds: 300), () {
-        youtubeController?.play();
+        youtubeController!.playVideo();
       });
     }
   }

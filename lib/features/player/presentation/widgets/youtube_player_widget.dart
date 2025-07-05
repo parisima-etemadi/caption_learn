@@ -1,79 +1,91 @@
 import 'package:flutter/material.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import '../../../../features/vocabulary/models/vocabulary_item.dart';
+import '../../../../features/vocabulary/presentation/widgets/vocabulary_dialog.dart';
+import '../../domain/services/video_player_manager.dart';
+import '../../../video/data/models/video_content.dart';
+import 'subtitle_display.dart';
 
-class YouTubePlayerWidget extends StatefulWidget {
+class YoutubePlayerWidget extends StatefulWidget {
   final YoutubePlayerController? controller;
-  final bool isInitialized;
-  final VoidCallback onReady;
 
-  const YouTubePlayerWidget({
-    Key? key,
-    required this.controller,
-    required this.isInitialized,
-    required this.onReady,
-  }) : super(key: key);
+  const YoutubePlayerWidget({Key? key, this.controller}) : super(key: key);
 
   @override
-  State<YouTubePlayerWidget> createState() => _YouTubePlayerWidgetState();
+  _YoutubePlayerWidgetState createState() => _YoutubePlayerWidgetState();
 }
 
-class _YouTubePlayerWidgetState extends State<YouTubePlayerWidget> with AutomaticKeepAliveClientMixin {
+class _YoutubePlayerWidgetState extends State<YoutubePlayerWidget> {
+  late VideoPlayerManager _playerManager;
+  final _definitionController = TextEditingController();
+  final _exampleController = TextEditingController();
+
   @override
-  bool get wantKeepAlive => true;
-  
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _playerManager = Provider.of<VideoPlayerManager>(context, listen: false);
+  }
+
+  @override
+  void dispose() {
+    _definitionController.dispose();
+    _exampleController.dispose();
+    super.dispose();
+  }
+
+  void _showVocabularyDialog(String word) {
+    final newItem = _playerManager.createVocabularyItem(word);
+    
+    showDialog(
+      context: context,
+      builder: (context) => VocabularyDialog(
+        selectedWord: newItem,
+        definitionController: _definitionController,
+        exampleController: _exampleController,
+        onSave: () {
+          _playerManager.saveVocabularyItem(
+            newItem,
+            _definitionController.text,
+            _exampleController.text,
+          );
+          Navigator.of(context).pop();
+          _definitionController.clear();
+          _exampleController.clear();
+        },
+        onCancel: () {
+          Navigator.of(context).pop();
+          _definitionController.clear();
+          _exampleController.clear();
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
-    
-    if (!widget.isInitialized || widget.controller == null) {
-      return const Center(
-        child: Text('Error initializing YouTube player'),
-      );
+    if (widget.controller == null) {
+      return const Center(child: CircularProgressIndicator());
     }
-    
-    return YoutubePlayerBuilder(
-      player: YoutubePlayer(
-        controller: widget.controller!,
-        showVideoProgressIndicator: true,
-        progressIndicatorColor: Colors.red,
-        progressColors: const ProgressBarColors(
-          playedColor: Colors.red,
-          handleColor: Colors.redAccent,
+
+    return Column(
+      children: [
+        YoutubePlayer(
+          controller: widget.controller!,
+          aspectRatio: 16 / 9,
         ),
-        onReady: widget.onReady,
-        onEnded: (YoutubeMetaData metaData) {
-          // Handle video end if needed
-        },
-        topActions: [
-          const SizedBox(width: 8.0),
-          Expanded(
-            child: Text(
-              widget.controller!.metadata.title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18.0,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ),
-        ],
-        bottomActions: [
-          CurrentPosition(),
-          const SizedBox(width: 10.0),
-          ProgressBar(
-            isExpanded: true,
-            colors: const ProgressBarColors(
-              playedColor: Colors.red,
-              handleColor: Colors.redAccent,
-            ),
-          ),
-          const SizedBox(width: 10.0),
-          RemainingDuration(),
-          FullScreenButton(),
-        ],
-      ),
-      builder: (context, player) => player,
+
+        // Subtitles display
+        ValueListenableBuilder<Subtitle?>(
+          valueListenable: _playerManager.currentSubtitleNotifier,
+          builder: (context, subtitle, _) {
+            return SubtitleDisplay(
+              currentSubtitle: subtitle,
+              onWordTap: (word) => _showVocabularyDialog(word),
+            );
+          },
+        ),
+      ],
     );
   }
 }

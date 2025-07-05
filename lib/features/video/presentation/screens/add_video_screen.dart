@@ -1,5 +1,8 @@
 // lib/features/video/presentation/screens/add_video_screen.dart
+import 'dart:io';
+
 import 'package:caption_learn/services/storage_service.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../video/domain/services/video_service.dart';
@@ -20,6 +23,7 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
   final _logger = Logger('AddVideoScreen');
 
   bool _isProcessing = false;
+  File? _subtitleFile;
 
   @override
   void dispose() {
@@ -28,104 +32,125 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
     super.dispose();
   }
 
-Future<void> _processVideo() async {
-  if (!_formKey.currentState!.validate()) {
-    return;
-  }
+  Future<void> _pickSubtitleFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['srt'],
+    );
 
-  setState(() {
-    _isProcessing = true;
-  });
-
-  try {
-    final url = _urlController.text.trim();
-
-    // Check if URL is a YouTube URL
-    if (!YoutubeUtils.isYoutubeUrl(url)) {
-      throw Exception('Only YouTube URLs are supported');
-    }
-
-    // Process the video URL to get details and subtitles
-    final videoContent = await _videoService.processVideoUrl(url);
-
-    // Check if subtitles were found and handle warnings
-    if (videoContent.subtitles.isEmpty && mounted) {
-      if (videoContent.subtitleWarning != null) {
-        // Show specific warning message - video will still be added
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('⚠️ ${videoContent.subtitleWarning}'),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      } else {
-        // Show generic dialog for truly missing subtitles
-        final proceed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('No Subtitles Found'),
-            content: const Text(
-              'This video doesn\'t have subtitles available. You can still add it, but you won\'t be able to use the subtitle features.\n\nDo you want to continue?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Continue'),
-              ),
-            ],
-          ),
-        );
-
-        if (proceed != true) {
-          setState(() {
-            _isProcessing = false;
-          });
-          return;
-        }
-      }
-    }
-
-    // Save the video using StorageService which handles both Firebase and Hive
-    await _storageService.saveVideo(videoContent);
-
-    if (mounted) {
-      String message;
-      if (videoContent.subtitles.isNotEmpty) {
-        message = 'Video added: ${videoContent.title}';
-      } else if (videoContent.subtitleWarning != null) {
-        message = 'Video added: ${videoContent.title} (Subtitles had issues but video is ready)';
-      } else {
-        message = 'Video added: ${videoContent.title} (No subtitles available)';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.pop(context, true); // Return success
-    }
-  } catch (e) {
-    _logger.e('Error processing video', e);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (result != null) {
       setState(() {
-        _isProcessing = false;
+        _subtitleFile = File(result.files.single.path!);
       });
     }
   }
-}
+
+  Future<void> _processVideo() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      final url = _urlController.text.trim();
+
+      // Check if URL is a YouTube URL
+      if (!YoutubeUtils.isYoutubeUrl(url)) {
+        throw Exception('Only YouTube URLs are supported');
+      }
+
+      String? subtitleContent;
+      if (_subtitleFile != null) {
+        subtitleContent = await _subtitleFile!.readAsString();
+      }
+
+      // Process the video URL to get details and subtitles
+      final videoContent = await _videoService.processVideoUrl(
+        url,
+        manualSubtitleContent: subtitleContent,
+      );
+
+      // Check if subtitles were found and handle warnings
+      if (videoContent.subtitles.isEmpty && mounted) {
+        if (videoContent.subtitleWarning != null) {
+          // Show specific warning message - video will still be added
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('⚠️ ${videoContent.subtitleWarning}'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          // Show generic dialog for truly missing subtitles
+          final proceed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('No Subtitles Found'),
+              content: const Text(
+                'This video doesn\'t have subtitles available. You can still add it, but you won\'t be able to use the subtitle features.\n\nDo you want to continue?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Continue'),
+                ),
+              ],
+            ),
+          );
+
+          if (proceed != true) {
+            setState(() {
+              _isProcessing = false;
+            });
+            return;
+          }
+        }
+      }
+
+      // Save the video using StorageService which handles both Firebase and Hive
+      await _storageService.saveVideo(videoContent);
+
+      if (mounted) {
+        String message;
+        if (videoContent.subtitles.isNotEmpty) {
+          message = 'Video added: ${videoContent.title}';
+        } else if (videoContent.subtitleWarning != null) {
+          message = 'Video added: ${videoContent.title} (Subtitles had issues but video is ready)';
+        } else {
+          message = 'Video added: ${videoContent.title} (No subtitles available)';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true); // Return success
+      }
+    } catch (e) {
+      _logger.e('Error processing video', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _isProcessing = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -186,6 +211,11 @@ Future<void> _processVideo() async {
             },
           ),
 
+          const SizedBox(height: 20),
+
+          // Manual subtitle picker
+          _buildSubtitlePicker(),
+
           const SizedBox(height: 12),
 
           // Info message
@@ -226,6 +256,59 @@ Future<void> _processVideo() async {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSubtitlePicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Manual Subtitle (Optional)',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _pickSubtitleFile,
+          icon: const Icon(Icons.subtitles),
+          label: const Text('Select Subtitle File (.srt)'),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        if (_subtitleFile != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Selected: ${_subtitleFile!.path.split('/').last}',
+                    style: const TextStyle(fontStyle: FontStyle.italic),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _subtitleFile = null;
+                    });
+                  },
+                )
+              ],
+            ),
+          ),
+      ],
     );
   }
 
