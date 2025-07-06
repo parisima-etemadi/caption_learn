@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/state/auth_state_manager.dart';
 import '../../../../core/exceptions/app_exceptions.dart';
+import 'package:caption_learn/services/auth/youtube_oauth_service.dart';
 
 part 'auth_event.dart';
 part 'auth_state.dart';
@@ -11,6 +12,7 @@ part 'auth_state.dart';
 /// Simplified auth bloc using AuthStateManager
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthStateManager _authManager = AuthStateManager();
+  final YouTubeOAuthService _youtubeOAuthService = YouTubeOAuthService();
   late StreamSubscription<AuthenticationState> _authStateSubscription;
   late StreamSubscription<bool> _loadingSubscription;
 
@@ -42,6 +44,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onSignInWithGoogle(SignInWithGoogleRequested event, Emitter<AuthState> emit) async {
     try {
       await _authManager.signInWithGoogle();
+      if (_authManager.currentUser != null) {
+        // After successful app login, trigger YouTube sign-in
+        await _youtubeOAuthService.signIn();
+      }
     } on AuthException catch (e) {
       emit(AuthState.failure(e.message));
     }

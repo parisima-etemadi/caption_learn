@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../player/presentation/widgets/subtitle_display.dart';
 import '../../../player/presentation/widgets/youtube_player_widget.dart';
 import '../../../vocabulary/presentation/screens/vocabulary_screen.dart';
+import '../../../player/presentation/widgets/say_it_dialog.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final String videoId;
@@ -177,6 +178,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
             setState(() {
               _activeNavIndex = 2; // Keep loop as the main active button
             });
+          } else if (index == 4) {
+            _handleSayIt();
           } else {
             // Set the active index for other buttons
             setState(() {
@@ -188,6 +191,32 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
     );
   }
   
+  void _handleSayIt() {
+    final currentSubtitle = _playerManager.currentSubtitleNotifier.value;
+    if (currentSubtitle != null) {
+      if (_playerManager.isYoutubeVideo && _playerManager.youtubeController != null) {
+        _playerManager.youtubeController!.pauseVideo();
+      }
+      showDialog(
+        context: context,
+        builder: (_) => SayItDialog(
+          correctText: currentSubtitle.text,
+          speechService: _playerManager.speechService,
+          ttsService: _playerManager.ttsService,
+        ),
+      ).then((_) {
+        // Resume playback when the dialog is closed
+        if (_playerManager.isYoutubeVideo && _playerManager.youtubeController != null) {
+          _playerManager.youtubeController!.playVideo();
+        }
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No active subtitle to practice.")),
+      );
+    }
+  }
+
   Widget _buildVideoPlayerSection() {
     // Ensure we have a unique key for the player
     final playerKey = ValueKey('youtube_player_${widget.videoId}');

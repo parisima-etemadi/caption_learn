@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:caption_learn/services/storage_service.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/exceptions/app_exceptions.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../video/domain/services/video_service.dart';
 import '../../../../core/utils/youtube_utils.dart';
@@ -136,15 +137,38 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
         );
         Navigator.pop(context, true); // Return success
       }
+    } on NetworkException catch (e) {
+      _logger.e('Network error processing video', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } on VideoException catch (e) {
+      _logger.e('Video processing error', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } catch (e) {
       _logger.e('Error processing video', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text('An unexpected error occurred: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
         setState(() {
           _isProcessing = false;
         });

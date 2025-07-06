@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:caption_learn/core/utils/logger.dart';
 import 'package:http/http.dart' as http;
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
@@ -53,8 +54,34 @@ class VideoService extends BaseService {
     final yt = YoutubeExplode();
     try {
       logger.i('Processing YouTube video: $url');
-      final video = await yt.videos.get(videoId);
-      logger.i('Video title: ${video.title}');
+
+      Video? video;
+      String? videoTitle;
+
+      try {
+        video = await yt.videos.get(videoId).timeout(
+              const Duration(seconds: 30),
+              onTimeout: () =>
+                  throw TimeoutException('The connection to YouTube timed out.'),
+            );
+        videoTitle = video.title;
+        logger.i('Video title from API: $videoTitle');
+      } on VideoUnavailableException catch (e) {
+        logger.w('VideoUnavailableException caught. Trying fallback title extraction. ${e.toString()}');
+        videoTitle = await _getTitleFromWebScraping(videoId.value);
+        if (videoTitle != null) {
+          logger.i('Video title from fallback: $videoTitle');
+        } else {
+          logger.e('Fallback title extraction also failed.');
+          throw VideoException('Failed to process video', originalError: e);
+        }
+      }
+
+      if (videoTitle == null) {
+        throw const VideoException('Failed to retrieve video title.');
+      }
+
+      logger.i('Video title: $videoTitle');
 
       List<Subtitle> subtitles = [];
       String? subtitleWarning;
@@ -86,7 +113,7 @@ class VideoService extends BaseService {
 
       final result = VideoContent(
         id: videoId.value,
-        title: video.title,
+        title: videoTitle,
         sourceUrl: url,
         subtitles: subtitles,
         source: VideoSource.youtube,
@@ -95,15 +122,40 @@ class VideoService extends BaseService {
       );
 
       _cache[videoId.value] = result;
-      logger.i('Successfully processed video: ${video.title}');
+      logger.i('Successfully processed video: $videoTitle');
       return result;
+    } on SocketException catch (e) {
+      logger.e('Network error while processing video: $url', e);
+      throw const NetworkException('Please check your internet connection and try again.');
+    } on TimeoutException catch (e) {
+      logger.e('Timeout error while processing video: $url', e);
+      throw NetworkException(e.message ?? 'The request timed out.');
     } catch (e) {
       logger.e('Failed to process YouTube video: $url', e);
-      throw VideoException('Failed to process video: ${e.toString()}', originalError: e);
+      throw VideoException('Failed to process video', originalError: e);
     } finally {
       // **FIX**: Ensure the client is always closed after the operation.
       yt.close();
     }
+  }
+
+  Future<String?> _getTitleFromWebScraping(String videoId) async {
+    final url = 'https://www.youtube.com/watch?v=$videoId';
+    try {
+      final response = await http.get(Uri.parse(url), headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      });
+
+      if (response.statusCode == 200) {
+        final titleMatch = RegExp(r'<title>(.*?) - YouTube</title>').firstMatch(response.body);
+        return titleMatch?.group(1)?.trim();
+      }
+    } catch (e) {
+      logger.e('Error during web scraping for title', e);
+    }
+    return null;
   }
 
   void clearCache() {
@@ -293,4 +345,3 @@ class _SubtitleOrchestrator {
     return items?.cast<Map<String, dynamic>>() ?? [];
   }
 }
-

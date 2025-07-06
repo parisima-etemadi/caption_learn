@@ -30,6 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  speech_to_text: ^7.1.0
+  string_similarity: ^2.0.0
+  flutter_tts: ^4.2.3
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -39,7 +42,7 @@ dependencies:
   video_player: ^2.9.5
   
   # For YouTube video playbook and extraction
-  youtube_explode_dart: ^2.4.2
+  youtube_explode_dart: ^2.5.1
   
   # Alternative YouTube caption extraction
   youtube_caption_scraper: ^0.2.1

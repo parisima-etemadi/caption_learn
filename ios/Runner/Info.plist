@@ -48,7 +48,9 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app needs access to local network for debugging purposes</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>This app needs access to your microphone when recording videos</string>
+	<string>This application needs access to the microphone to enable the "Say it" feature, which allows you to practice your pronunciation.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>This application uses speech recognition to evaluate your pronunciation when you use the "Say it" feature.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library to select videos</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

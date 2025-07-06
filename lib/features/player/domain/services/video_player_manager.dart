@@ -10,6 +10,8 @@ import '../../../../services/storage_service.dart';
 import '../../../vocabulary/models/vocabulary_item.dart';
 import '../../../video/data/models/video_content.dart';
 import '../../../video/domain/enum/video_source.dart';
+import '../../../../services/speech_service.dart';
+import '../../../../services/tts_service.dart';
 
 /// Manager class that handles video player logic and state
 class VideoPlayerManager {
@@ -19,6 +21,8 @@ class VideoPlayerManager {
   final VoidCallback onInitialized;
   final Logger _logger = const Logger('VideoPlayerManager');
   final StorageService _storageService = StorageService();
+  final SpeechService _speechService = SpeechService();
+  final TtsService _ttsService = TtsService();
 
 
   VideoPlayerController? controller; // For future local video support
@@ -42,7 +46,9 @@ class VideoPlayerManager {
     required this.onSubtitleIndexChanged,
     required this.onLoadingChanged,
     required this.onInitialized,
-  });
+  }) {
+    _speechService.initialize();
+  }
 
   /// Load the video content and initialize the appropriate player
   Future<void> loadVideo(BuildContext context) async {
@@ -148,6 +154,8 @@ class VideoPlayerManager {
     _isDisposed = true;
     positionTimer?.cancel();
     _ytStateSubscription?.cancel();
+    _speechService.dispose();
+    _ttsService.dispose();
     youtubeController?.close();
     controller?.dispose();
     _logger.d('Disposed player resources');
@@ -257,6 +265,9 @@ class VideoPlayerManager {
   void toggleLooping() {
     isLoopingNotifier.value = !isLoopingNotifier.value;
   }
+
+  SpeechService get speechService => _speechService;
+  TtsService get ttsService => _ttsService;
 
   /// Seek to specific time in YouTube video
   void seekYouTubeToTime(int milliseconds) {
