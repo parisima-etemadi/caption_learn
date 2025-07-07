@@ -1,11 +1,13 @@
 import 'package:caption_learn/core/widgets/learned_words_indicator.dart';
 import 'package:caption_learn/features/player/domain/services/video_player_manager.dart';
+import 'package:caption_learn/features/video/data/models/video_content.dart';
 import 'package:caption_learn/features/vocabulary/models/vocabulary_item.dart';
 import 'package:caption_learn/features/vocabulary/presentation/widgets/vocabulary_dialog.dart';
 import 'package:caption_learn/services/storage_service.dart';
 import 'package:caption_learn/features/player/presentation/widgets/custom_bottom_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 import '../../../player/presentation/widgets/subtitle_display.dart';
 import '../../../player/presentation/widgets/youtube_player_widget.dart';
 import '../../../vocabulary/presentation/screens/vocabulary_screen.dart';
@@ -72,11 +74,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
       _selectedWord = _playerManager.createVocabularyItem(word);
     });
     
-    if (_playerManager.isYoutubeVideo && _playerManager.youtubeController != null) {
-      _playerManager.youtubeController!.pauseVideo();
-    } else if (_playerManager.controller != null) {
-      _playerManager.controller!.pause();
-    }
+    _playerManager.pause();
     
     _showVocabularyDialog();
   }
@@ -92,11 +90,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
         onSave: _saveVocabularyItem,
         onCancel: () {
           Navigator.of(context).pop();
-          if (_playerManager.isYoutubeVideo) {
-            _playerManager.youtubeController?.playVideo();
-          } else {
-            _playerManager.controller?.play();
-          }
+          _playerManager.play();
         },
       ),
     );
@@ -120,11 +114,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
         SnackBar(content: Text('${_selectedWord!.word} added to vocabulary')),
       );
       
-      if (_playerManager.isYoutubeVideo) {
-        _playerManager.youtubeController?.playVideo();
-      } else {
-        _playerManager.controller?.play();
-      }
+      _playerManager.play();
     }
   }
 
@@ -194,9 +184,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
   void _handleSayIt() {
     final currentSubtitle = _playerManager.currentSubtitleNotifier.value;
     if (currentSubtitle != null) {
-      if (_playerManager.isYoutubeVideo && _playerManager.youtubeController != null) {
-        _playerManager.youtubeController!.pauseVideo();
-      }
+      _playerManager.pause();
       showDialog(
         context: context,
         builder: (_) => SayItDialog(
@@ -206,9 +194,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
         ),
       ).then((_) {
         // Resume playback when the dialog is closed
-        if (_playerManager.isYoutubeVideo && _playerManager.youtubeController != null) {
-          _playerManager.youtubeController!.playVideo();
-        }
+        _playerManager.play();
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -219,32 +205,43 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
 
   Widget _buildVideoPlayerSection() {
     // Ensure we have a unique key for the player
-    final playerKey = ValueKey('youtube_player_${widget.videoId}');
+    final playerKey = ValueKey('video_player_${widget.videoId}');
     
-    return Stack(
+    return Column(
       children: [
-        Container(
-          color: Colors.black,
-          width: double.infinity,
-          child: _playerManager.isInitialized && _playerManager.youtubeController != null
-              ? YoutubePlayerWidget(
-                  key: playerKey, // Add unique key
-                  controller: _playerManager.youtubeController,
-                )
-              : const Center(
-                  child: Text(
-                    'Video player not available',
-                    style: TextStyle(color: Colors.white),
-                  ),
+        Expanded(
+          child: Stack(
+            children: [
+              Container(
+                color: Colors.black,
+                width: double.infinity,
+                child: _playerManager.isInitialized
+                    ? (_playerManager.isYoutubeVideo
+                        ? YoutubePlayerWidget(
+                            key: playerKey,
+                            controller: _playerManager.youtubeController,
+                          )
+                        : AspectRatio(
+                            aspectRatio: _playerManager.controller!.value.aspectRatio,
+                            child: VideoPlayer(_playerManager.controller!),
+                          ))
+                    : const Center(
+                        child: Text(
+                          'Video player not available',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+              ),
+              
+              if (_playerManager.videoContent != null)
+                const Positioned(
+                  top: 16,
+                  left: 16,
+                  child: LearnedWordsIndicator(),
                 ),
-        ),
-        
-        if (_playerManager.videoContent != null)
-          const Positioned(
-            top: 16,
-            left: 16,
-            child: LearnedWordsIndicator(),
+            ],
           ),
+        ),
       ],
     );
   }

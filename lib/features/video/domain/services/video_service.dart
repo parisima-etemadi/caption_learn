@@ -139,6 +139,10 @@ class VideoService extends BaseService {
     }
   }
 
+  Future<List<Subtitle>> parseSubtitles(String content) async {
+    return SubtitleParser.parse(content);
+  }
+
   Future<String?> _getTitleFromWebScraping(String videoId) async {
     final url = 'https://www.youtube.com/watch?v=$videoId';
     try {
