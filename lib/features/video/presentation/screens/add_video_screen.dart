@@ -20,7 +20,8 @@ class AddVideoScreen extends StatefulWidget {
 
 class _AddVideoScreenState extends State<AddVideoScreen>
     with SingleTickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
+  final _youTubeFormKey = GlobalKey<FormState>();
+  final _localFileFormKey = GlobalKey<FormState>();
   final _urlController = TextEditingController();
   final _videoService = VideoService();
   final _storageService = StorageService();
@@ -46,22 +47,23 @@ class _AddVideoScreenState extends State<AddVideoScreen>
     super.dispose();
   }
 
-  Future<void> _pickFile(Function(File) onFilePicked,
-      {required List<String> allowedExtensions}) async {
+  Future<File?> _pickFile({required List<String> allowedExtensions}) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
     );
 
     if (result != null) {
-      setState(() {
-        onFilePicked(File(result.files.single.path!));
-      });
+      return File(result.files.single.path!);
     }
+    return null;
   }
 
   Future<void> _processVideo() async {
-    if (!_formKey.currentState!.validate()) {
+    final isYouTube = _tabController.index == 0;
+    final formKey = isYouTube ? _youTubeFormKey : _localFileFormKey;
+
+    if (!formKey.currentState!.validate()) {
       return;
     }
 
@@ -70,7 +72,6 @@ class _AddVideoScreenState extends State<AddVideoScreen>
     });
 
     try {
-      final isYouTube = _tabController.index == 0;
       final url = _urlController.text.trim();
       String? subtitleContent;
 
@@ -92,8 +93,6 @@ class _AddVideoScreenState extends State<AddVideoScreen>
         if (_videoFile == null) {
           throw const VideoException('Please select a local video file');
         }
-        // This is a placeholder; we will implement this service logic next.
-        // For now, let's create a basic VideoContent object.
         videoContent = VideoContent(
           id: _videoFile!.path,
           title: _videoFile!.path.split('/').last,
@@ -107,78 +106,16 @@ class _AddVideoScreenState extends State<AddVideoScreen>
         );
       }
 
-      // Check if subtitles were found and handle warnings
-      if (videoContent.subtitles.isEmpty && mounted) {
-        if (videoContent.subtitleWarning != null) {
-          // Show specific warning message - video will still be added
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('⚠️ ${videoContent.subtitleWarning}'),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        } else {
-          // Show generic dialog for truly missing subtitles
-          final proceed = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('No Subtitles Found'),
-              content: const Text(
-                'This video doesn\'t have subtitles available. You can still add it, but you won\'t be able to use the subtitle features.\n\nDo you want to continue?',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Continue'),
-                ),
-              ],
-            ),
-          );
-
-          if (proceed != true) {
-            setState(() {
-              _isProcessing = false;
-            });
-            return;
-          }
-        }
-      }
-
-      // Save the video using StorageService which handles both Firebase and Hive
       await _storageService.saveVideo(videoContent);
 
       if (mounted) {
-        String message;
-        if (videoContent.subtitles.isNotEmpty) {
-          message = 'Video added: ${videoContent.title}';
-        } else if (videoContent.subtitleWarning != null) {
-          message = 'Video added: ${videoContent.title} (Subtitles had issues but video is ready)';
-        } else {
-          message = 'Video added: ${videoContent.title} (No subtitles available)';
-        }
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
+            content: Text('Video added: ${videoContent.title}'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context, true); // Return success
-      }
-    } on NetworkException catch (e) {
-      _logger.e('Network error processing video', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message),
-            backgroundColor: Colors.orange,
-          ),
-        );
+        Navigator.pop(context, true);
       }
     } on VideoException catch (e) {
       _logger.e('Video processing error', e);
@@ -239,7 +176,7 @@ class _AddVideoScreenState extends State<AddVideoScreen>
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
-        key: _formKey,
+        key: _youTubeFormKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -253,17 +190,19 @@ class _AddVideoScreenState extends State<AddVideoScreen>
               ),
               keyboardType: TextInputType.url,
               validator: (value) {
-                if (_tabController.index == 0 && (value == null || value.isEmpty)) {
+                if (_tabController.index == 0 &&
+                    (value == null || value.isEmpty)) {
                   return 'Please enter a URL';
                 }
-                if (_tabController.index == 0 && !YoutubeUtils.isYoutubeUrl(value!)) {
+                if (_tabController.index == 0 &&
+                    !YoutubeUtils.isYoutubeUrl(value!)) {
                   return 'Please enter a valid YouTube URL';
                 }
                 return null;
               },
             ),
             const SizedBox(height: 20),
-            _buildSubtitlePicker(isYouTube: true),
+            _buildSubtitlePicker(),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _processVideo,
@@ -283,9 +222,7 @@ class _AddVideoScreenState extends State<AddVideoScreen>
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
-        // The form key might need to be different if validators are different
-        // but for now we can share it.
-        key: _formKey,
+        key: _localFileFormKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -293,13 +230,16 @@ class _AddVideoScreenState extends State<AddVideoScreen>
               title: 'Video File',
               file: _videoFile,
               icon: Icons.movie,
-              onPressed: () => _pickFile(
-                (file) => _videoFile = file,
-                allowedExtensions: ['mp4', 'mov', 'avi', 'mkv'],
-              ),
+              onPressed: () async {
+                final file = await _pickFile(
+                    allowedExtensions: ['mp4', 'mov', 'avi', 'mkv']);
+                if (file != null) {
+                  setState(() => _videoFile = file);
+                }
+              },
             ),
             const SizedBox(height: 20),
-            _buildSubtitlePicker(isYouTube: false),
+            _buildSubtitlePicker(),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _processVideo,
@@ -315,15 +255,17 @@ class _AddVideoScreenState extends State<AddVideoScreen>
     );
   }
 
-  Widget _buildSubtitlePicker({required bool isYouTube}) {
+  Widget _buildSubtitlePicker() {
     return _buildFilePicker(
       title: 'Subtitle File (Optional)',
       file: _subtitleFile,
       icon: Icons.subtitles,
-      onPressed: () => _pickFile(
-        (file) => _subtitleFile = file,
-        allowedExtensions: ['srt'],
-      ),
+      onPressed: () async {
+        final file = await _pickFile(allowedExtensions: ['srt']);
+        if (file != null) {
+          setState(() => _subtitleFile = file);
+        }
+      },
     );
   }
 
@@ -344,7 +286,7 @@ class _AddVideoScreenState extends State<AddVideoScreen>
         OutlinedButton.icon(
           onPressed: onPressed,
           icon: Icon(icon),
-          label: Text('Select File...'),
+          label: const Text('Select File...'),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
