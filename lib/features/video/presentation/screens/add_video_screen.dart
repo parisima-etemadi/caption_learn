@@ -1,5 +1,5 @@
-// lib/features/video/presentation/screens/add_video_screen.dart
 import 'dart:io';
+import 'dart:async'; // Add this import
 import 'package:caption_learn/core/widgets/loading_overlay.dart';
 import 'package:caption_learn/features/video/domain/enum/video_source.dart';
 import 'package:caption_learn/features/video/domain/services/video_processor.dart' hide VideoSource;
@@ -7,7 +7,7 @@ import 'package:caption_learn/features/video/presentation/widgets/file_selector.
 import 'package:caption_learn/features/video/presentation/widgets/video_url_input.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-
+import '../../../../core/utils/logger.dart';
 
 class AddVideoScreen extends StatefulWidget {
   const AddVideoScreen({super.key});
@@ -19,6 +19,7 @@ class AddVideoScreen extends StatefulWidget {
 class _AddVideoScreenState extends State<AddVideoScreen> {
   final _processor = VideoProcessor();
   final _urlController = TextEditingController();
+  final Logger _logger = const Logger('AddVideoScreen');
   
   bool _isProcessing = false;
   File? _subtitleFile;
@@ -38,20 +39,52 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
     setState(() => _isProcessing = true);
     
     try {
+      _logger.i('Starting video processing...');
+      _logger.i('Source: $_source');
+      _logger.i('URL: ${_urlController.text}');
+      _logger.i('Video file: ${_videoFile?.path}');
+      _logger.i('Subtitle file: ${_subtitleFile?.path}');
+      
+      // Add timeout to prevent infinite waiting
       await _processor.process(
         source: _source,
         url: _urlController.text.trim(),
         videoFile: _videoFile,
         subtitleFile: _subtitleFile,
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw TimeoutException('Video processing took too long');
+        },
       );
       
+      _logger.i('Video processing completed successfully');
+      
       if (mounted) {
-        Navigator.pop(context, true);
+        // Show success and navigate back
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Video added successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+        
+        // Force navigation back
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            Navigator.of(context).pop(true);
+          }
+        });
       }
     } catch (e) {
-      _showError(e.toString());
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      _logger.e('Video processing failed', e);
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        _showError(e is TimeoutException 
+          ? 'Processing timed out. Please try again.' 
+          : 'Error: ${e.toString()}');
+      }
     }
   }
 
@@ -68,8 +101,14 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
   }
 
   void _showError(String message) {
+    if (!mounted) return;
+    
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 5),
+      ),
     );
   }
 
@@ -83,9 +122,11 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
           child: _buildSourceToggle(),
         ),
       ),
-      body: _isProcessing 
-        ? const LoadingIndicator(message: 'Processing video...')
-        : _buildForm(),
+      body: LoadingOverlay(
+        isLoading: _isProcessing,
+        message: 'Processing video...',
+        child: _buildForm(),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isProcessing ? null : _processVideo,
         icon: const Icon(Icons.add),
@@ -95,31 +136,34 @@ class _AddVideoScreenState extends State<AddVideoScreen> {
   }
 
   Widget _buildSourceToggle() {
-    return ToggleButtons(
-      isSelected: [
-        _source == VideoSource.youtube,
-        _source == VideoSource.local,
-      ],
-      onPressed: (index) {
-        setState(() {
-          _source = index == 0 ? VideoSource.youtube : VideoSource.local;
-        });
-      },
-      children: const [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
-          child: Text('YouTube'),
-        ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
-          child: Text('Local File'),
-        ),
-      ],
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: ToggleButtons(
+        isSelected: [
+          _source == VideoSource.youtube,
+          _source == VideoSource.local,
+        ],
+        onPressed: _isProcessing ? null : (index) {
+          setState(() {
+            _source = index == 0 ? VideoSource.youtube : VideoSource.local;
+          });
+        },
+        children: const [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: Text('YouTube'),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: Text('Local File'),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildForm() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:caption_learn/core/utils/logger.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
@@ -140,7 +141,7 @@ class VideoService extends BaseService {
   }
 
   Future<List<Subtitle>> parseSubtitles(String content) async {
-    return SubtitleParser.parse(content);
+    return compute(SubtitleParser.parse, content);
   }
 
   Future<String?> _getTitleFromWebScraping(String videoId) async {

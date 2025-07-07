@@ -32,10 +32,13 @@ class StorageService extends BaseService {
   }
   
   // Video operations
-  Future<void> saveVideo(VideoContent video) async {
-    await _localStorage.saveVideo(video);
-    await _syncService.syncVideoToCloud(video); // Non-blocking sync
-  }
+Future<void> saveVideo(VideoContent video) async {
+  await _localStorage.saveVideo(video);
+  // Don't await the sync - let it happen in background
+  _syncService.syncVideoToCloud(video).catchError((e) {
+    logger.w('Background sync failed: $e');
+  });
+}
   
   Future<void> deleteVideo(String id) async {
     await _localStorage.deleteVideo(id);

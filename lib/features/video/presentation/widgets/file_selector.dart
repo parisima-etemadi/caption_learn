@@ -16,14 +16,34 @@ class FileSelector extends StatelessWidget {
     required this.extensions,
   });
 
-  Future<void> _pickFile() async {
+  Future<void> _pickFile(BuildContext context) async {
+    // Use FileType.any on iOS to allow all files, then filter manually
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: extensions,
+      type: Platform.isIOS ? FileType.any : FileType.custom,
+      allowedExtensions: Platform.isIOS ? null : extensions,
     );
     
     if (result != null) {
-      onSelected(File(result.files.single.path!));
+      final file = File(result.files.single.path!);
+      
+      // Manual extension validation for iOS
+      if (Platform.isIOS) {
+        final fileName = file.path.toLowerCase();
+        final hasValidExtension = extensions.any((ext) => fileName.endsWith('.$ext'));
+        
+        if (!hasValidExtension) {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Please select a file with one of these extensions: ${extensions.join(', ')}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
+      
+      onSelected(file);
     }
   }
 
@@ -36,9 +56,11 @@ class FileSelector extends StatelessWidget {
         const SizedBox(height: 8),
         if (file == null)
           OutlinedButton.icon(
-            onPressed: _pickFile,
+            onPressed: () => _pickFile(context), // Pass context here
             icon: const Icon(Icons.folder_open),
-            label: const Text('Select File'),
+            label: Text(Platform.isIOS 
+                ? 'Select File (${extensions.join(', ')})'
+                : 'Select File'),
           )
         else
           ListTile(
