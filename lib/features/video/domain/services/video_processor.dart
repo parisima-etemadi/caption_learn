@@ -68,22 +68,6 @@ class VideoProcessor {
     try {
       _logger.i('Creating local video content');
       
-      final appDir = await getApplicationDocumentsDirectory();
-      final videosDir = Directory(p.join(appDir.path, 'videos'));
-      
-      if (!await videosDir.exists()) {
-        await videosDir.create(recursive: true);
-        _logger.i('Created videos directory: ${videosDir.path}');
-      }
-      
-      final fileName = p.basename(file.path);
-      final newPath = p.join(videosDir.path, fileName);
-      
-      _logger.i('Writing video from ${file.path} to $newPath');
-      final newFile = File(newPath);
-      await newFile.writeAsBytes(await file.readAsBytes());
-      _logger.i('Video written successfully');
-
       List<Subtitle> subtitles = [];
       if (subtitleContent != null && subtitleContent.isNotEmpty) {
         try {
@@ -97,12 +81,32 @@ class VideoProcessor {
         }
       }
       
+      final id = DateTime.now().millisecondsSinceEpoch.toString();
+      final originalFileName = p.basename(file.path);
+      final extension = p.extension(file.path);
+      final newFileName = '$id$extension';
+
+      final appDir = await getApplicationDocumentsDirectory();
+      final videosDir = Directory(p.join(appDir.path, 'videos'));
+      
+      if (!await videosDir.exists()) {
+        await videosDir.create(recursive: true);
+        _logger.i('Created videos directory: ${videosDir.path}');
+      }
+      
+      final newPath = p.join(videosDir.path, newFileName);
+      
+      _logger.i('Writing video from ${file.path} to $newPath');
+      final newFile = File(newPath);
+      await newFile.writeAsBytes(await file.readAsBytes());
+      _logger.i('Video written successfully');
+      
       final videoContent = VideoContent(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: newFile.path.split('/').last,
-        sourceUrl: newFile.path,
+        id: id,
+        title: originalFileName,
+        sourceUrl: newFileName,
         source: VideoSource.local,
-        localPath: newFile.path,
+        localPath: newFileName,
         subtitles: subtitles,
         dateAdded: DateTime.now(),
       );

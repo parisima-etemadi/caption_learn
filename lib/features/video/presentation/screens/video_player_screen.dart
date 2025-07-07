@@ -246,16 +246,48 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
                   child: VideoPlayer(_playerManager.controller!),
                 ),
                 if (!_playerManager.controller!.value.isPlaying)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow,
-                      color: Colors.white,
-                      size: 80,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.replay_10, color: Colors.white, size: 40),
+                        onPressed: () {
+                          if (_playerManager.controller == null) return;
+                          final currentPosition = _playerManager.controller!.value.position;
+                          var newPosition = currentPosition - const Duration(seconds: 10);
+                          if (newPosition < Duration.zero) {
+                            newPosition = Duration.zero;
+                          }
+                          _playerManager.seekTo(newPosition.inMilliseconds);
+                        },
+                      ),
+                      const SizedBox(width: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow,
+                          color: Colors.white,
+                          size: 80,
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      IconButton(
+                        icon: const Icon(Icons.forward_10, color: Colors.white, size: 40),
+                        onPressed: () {
+                          if (_playerManager.controller == null) return;
+                          final currentPosition = _playerManager.controller!.value.position;
+                          final videoDuration = _playerManager.controller!.value.duration;
+                          var newPosition = currentPosition + const Duration(seconds: 10);
+                          if (newPosition > videoDuration) {
+                            newPosition = videoDuration;
+                          }
+                          _playerManager.seekTo(newPosition.inMilliseconds);
+                        },
+                      ),
+                    ],
                   ),
                 if (_playerManager.videoContent != null)
                   const Positioned(

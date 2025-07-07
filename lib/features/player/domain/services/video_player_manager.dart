@@ -2,6 +2,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'package:video_player/video_player.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
@@ -75,7 +77,6 @@ class VideoPlayerManager {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
-    Navigator.of(context).pop();
   }
 
   Future<void> initializeVideoPlayer(BuildContext context) async {
@@ -107,12 +108,22 @@ class VideoPlayerManager {
   }
 
   Future<void> initializeLocalVideo(BuildContext context) async {
-    final localPath = videoContent!.localPath;
-    if (localPath == null || !File(localPath).existsSync()) {
-      _showError(context, 'Local video file not found at path: $localPath');
+    final fileName = videoContent!.localPath;
+    if (fileName == null) {
+      _showError(context, 'Local video filename not found.');
       return;
     }
-    controller = VideoPlayerController.file(File(localPath));
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final fullPath = p.join(appDir.path, 'videos', fileName);
+    final videoFile = File(fullPath);
+
+    if (!await videoFile.exists()) {
+      _showError(context, 'Local video file not found at path: $fullPath');
+      return;
+    }
+
+    controller = VideoPlayerController.file(videoFile);
     await controller!.initialize();
     isInitialized = true;
     onInitialized();
