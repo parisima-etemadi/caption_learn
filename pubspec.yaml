@@ -89,6 +89,7 @@ dependencies:
   country_code_picker: ^3.3.0
   file_picker: ^10.2.0
   youtube_player_iframe: ^5.2.1
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:

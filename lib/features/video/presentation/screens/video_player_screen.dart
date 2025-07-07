@@ -146,13 +146,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
           ? const Center(child: CircularProgressIndicator())
           : Provider.value(
               value: _playerManager,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: _buildVideoPlayerSection(),
-                  ),
-                ],
-              ),
+              child: _buildVideoPlayerSection(),
             ),
       bottomNavigationBar: CustomBottomNavigation(
         currentIndex: _activeNavIndex,
@@ -204,43 +198,97 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with AutomaticKee
   }
 
   Widget _buildVideoPlayerSection() {
-    // Ensure we have a unique key for the player
     final playerKey = ValueKey('video_player_${widget.videoId}');
     
+    if (!_playerManager.isInitialized) {
+      return Container(
+        color: Colors.black,
+        width: double.infinity,
+        height: double.infinity,
+        child: const Center(
+          child: Text(
+            'Video player not available',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+
+    return _playerManager.isYoutubeVideo
+        ? YoutubePlayerWidget(
+            key: playerKey,
+            controller: _playerManager.youtubeController,
+          )
+        : _buildLocalVideoPlayer();
+  }
+
+  Widget _buildLocalVideoPlayer() {
     return Column(
       children: [
-        Expanded(
-          child: Stack(
-            children: [
-              Container(
-                color: Colors.black,
-                width: double.infinity,
-                child: _playerManager.isInitialized
-                    ? (_playerManager.isYoutubeVideo
-                        ? YoutubePlayerWidget(
-                            key: playerKey,
-                            controller: _playerManager.youtubeController,
-                          )
-                        : AspectRatio(
-                            aspectRatio: _playerManager.controller!.value.aspectRatio,
-                            child: VideoPlayer(_playerManager.controller!),
-                          ))
-                    : const Center(
-                        child: Text(
-                          'Video player not available',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-              ),
-              
-              if (_playerManager.videoContent != null)
-                const Positioned(
-                  top: 16,
-                  left: 16,
-                  child: LearnedWordsIndicator(),
+        Container(
+          color: Colors.black,
+          child: GestureDetector(
+            onTap: () {
+              if (_playerManager.controller == null) return;
+              setState(() {
+                if (_playerManager.controller!.value.isPlaying) {
+                  _playerManager.pause();
+                } else {
+                  _playerManager.play();
+                }
+              });
+            },
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                AspectRatio(
+                  aspectRatio: _playerManager.controller!.value.aspectRatio,
+                  child: VideoPlayer(_playerManager.controller!),
                 ),
-            ],
+                if (!_playerManager.controller!.value.isPlaying)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 80,
+                    ),
+                  ),
+                if (_playerManager.videoContent != null)
+                  const Positioned(
+                    top: 16,
+                    left: 16,
+                    child: LearnedWordsIndicator(),
+                  ),
+              ],
+            ),
           ),
+        ),
+        ValueListenableBuilder<bool>(
+          valueListenable: _playerManager.showSubtitlesNotifier,
+          builder: (context, showSubtitles, _) {
+            if (!showSubtitles) {
+              return const SizedBox(height: 80);
+            }
+            return ValueListenableBuilder<Subtitle?>(
+              valueListenable: _playerManager.currentSubtitleNotifier,
+              builder: (context, subtitle, _) {
+                return ValueListenableBuilder<int>(
+                  valueListenable: _playerManager.currentPositionNotifier,
+                  builder: (context, position, _) {
+                    return SubtitleDisplay(
+                      currentSubtitle: subtitle,
+                      onWordTap: (word) => _selectWord(word),
+                      currentPositionMs: position,
+                    );
+                  },
+                );
+              },
+            );
+          },
         ),
       ],
     );

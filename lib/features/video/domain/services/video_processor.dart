@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+
 import '../../../../services/storage_service.dart';
 import '../services/video_service.dart';
 import '../../data/models/video_content.dart';
@@ -65,6 +68,22 @@ class VideoProcessor {
     try {
       _logger.i('Creating local video content');
       
+      final appDir = await getApplicationDocumentsDirectory();
+      final videosDir = Directory(p.join(appDir.path, 'videos'));
+      
+      if (!await videosDir.exists()) {
+        await videosDir.create(recursive: true);
+        _logger.i('Created videos directory: ${videosDir.path}');
+      }
+      
+      final fileName = p.basename(file.path);
+      final newPath = p.join(videosDir.path, fileName);
+      
+      _logger.i('Writing video from ${file.path} to $newPath');
+      final newFile = File(newPath);
+      await newFile.writeAsBytes(await file.readAsBytes());
+      _logger.i('Video written successfully');
+
       List<Subtitle> subtitles = [];
       if (subtitleContent != null && subtitleContent.isNotEmpty) {
         try {
@@ -80,10 +99,10 @@ class VideoProcessor {
       
       final videoContent = VideoContent(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        title: file.path.split('/').last,
-        sourceUrl: file.path,
+        title: newFile.path.split('/').last,
+        sourceUrl: newFile.path,
         source: VideoSource.local,
-        localPath: file.path,
+        localPath: newFile.path,
         subtitles: subtitles,
         dateAdded: DateTime.now(),
       );
