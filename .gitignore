@@ -54,3 +54,5 @@ ios/Runner.xcodeproj/project.pbxproj
 # Generated files
 *.g.dart
 *.freezed.dart
+/ios/Runner.xcodeproj/project.pbxproj
+/ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme
