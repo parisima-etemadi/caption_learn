@@ -64,3 +64,4 @@ macos/Flutter/GeneratedPluginRegistrant.swift
 macos/Flutter/GeneratedPluginRegistrant.swift
 ios/Podfile.lock
 ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme
+pubspec.lock

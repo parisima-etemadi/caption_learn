@@ -140,3 +140,12 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+patrol:
+  app_name: Caption Learn
+  android:
+    package_name: com.example.caption_learn
+  ios:
+    bundle_id: com.example.captionLearn
+  macos:
+    bundle_id: com.example.captionLearn
